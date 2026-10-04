@@ -21,7 +21,8 @@ const view = (b: Booking) => ({
   qty: b.qty,
   status: b.status,
   total: b.totalCents !== null ? eur(b.totalCents) : null,
-  approved: b.approvedCents !== null ? eur(b.approvedCents) : null,
+  // While a re-approval is pending this is still the earlier amount, so only show it once settled.
+  approved: b.approvedCents !== null && !['awaiting_approval', 'needs_human'].includes(b.status) ? eur(b.approvedCents) : null,
   ticketUrl: b.ticketUrl,
   orderNumber: b.orderRef,
   liveViewUrl: b.status === 'needs_human' ? b.liveViewUrl : null,
