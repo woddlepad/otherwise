@@ -312,7 +312,7 @@ Contract for the booking side: re-read price + cancellation on the checkout page
   from the handoff's title (seen once: "Kurt Elling & The Yellowjackets" vs "The Music of Weather Report"). Not fixed (user: skip).
 - `bookingUrl` is usually null; the booking agent starts from `detailUrl`.
 - Handoff route is `GET /events/:eventId/handoff` (not `/api/...` as in §8.10; Mastra reserves `/api`).
-- Neon DB not migrated; `neon.ts` daily trigger + env passthrough (`CRON_SECRET`, `DISCOVERY_MODEL`, `NOMINATIM_USER_AGENT`) not added.
+- Neon `production` branch migrated 2026-10-04 ~13:55 PT (full db/schema.sql, idempotent). Worktree branches created earlier (e.g. `wt/philipp`) are not. Env passthrough for `DISCOVERY_MODEL` / `NOMINATIM_USER_AGENT` in neon.ts still optional (defaults work).
 - Decided 2026-10-04: **no periodic pulls for the hackathon.** The Neon daily trigger is dropped; for the demo, run discovery
   once per demo user (`POST /dev/discover {"phone":…,"notify":true}` with `X-Dev-Token`, or `scripts/discover.ts --user …`).
   `/cron/discover` stays in the code for later.
