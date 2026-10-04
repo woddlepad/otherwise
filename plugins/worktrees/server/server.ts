@@ -1,7 +1,6 @@
 import { join } from 'node:path'
 
-import { createSqliteExtension, type SqliteDatabase } from '@atmos.build/extension/server'
-import { z } from '@atmos.build/extension'
+import { createSqliteExtension } from '@atmos.build/extension/server'
 
 import {
   appDocument,
@@ -18,42 +17,28 @@ import {
 } from './contract.ts'
 import * as ops from './ops.ts'
 
-const Row = z.object({
-  name: z.string(),
-  path: z.string(),
-  gitBranch: z.string(),
-  port: z.number().int(),
-  phone: z.string().nullable(),
-  neonBranchId: z.string(),
-  neonBranchName: z.string(),
-  createdAt: z.string(),
-})
-type Row = z.infer<typeof Row>
-const SELECT = `SELECT name, path, git_branch AS gitBranch, port, phone, neon_branch_id AS neonBranchId,
-  neon_branch_name AS neonBranchName, created_at AS createdAt FROM worktrees`
-
 const extension = createSqliteExtension(extensionContract, { root: new URL('..', import.meta.url) })
 
-function rows(db: SqliteDatabase) {
-  return db.all(Row, `${SELECT} ORDER BY created_at`)
-}
-function rowFor(db: SqliteDatabase, name: string) {
-  const row = db.maybe(Row, `${SELECT} WHERE name = ?`, name)
-  if (!row) throw new ops.DomainError(`No worktree named "${name}".`)
-  return row
+async function find(name: string) {
+  const meta = (await ops.readRegistry()).find((m) => m.name === name)
+  if (!meta) throw new ops.DomainError(`No worktree named "${name}".`)
+  return meta
 }
 
-async function describe(list: Row[]): Promise<Worktree[]> {
+async function describe(list: ops.Meta[]): Promise<Worktree[]> {
   const live = await Promise.all(
-    list.map(async (r) => ({ ...r, ...(await ops.processState(r.name, r.path, r.port)), ...(await ops.gitState(r.path)) })),
+    list.map(async (m) => ({ ...m, ...(await ops.processState(m.name, m.path, m.port)), ...(await ops.gitState(m.path)) })),
   )
   const routes = await ops.routeStates(live)
   return live.map((w) => ({ ...w, route: routes.get(w.name) ?? { status: 'unknown', expiresAt: null, message: null } }))
 }
-async function describeOne(db: SqliteDatabase, name: string): Promise<Worktree> {
-  const [worktree] = await describe([rowFor(db, name)])
+async function describeOne(name: string): Promise<Worktree> {
+  const [worktree] = await describe([await find(name)])
   if (!worktree) throw new ops.DomainError(`No worktree named "${name}".`)
   return worktree
+}
+async function snapshot() {
+  return { repo: ops.config.repo, worktrees: await describe(await ops.readRegistry()) }
 }
 
 // One mutation at a time: port allocation and route moves must not interleave.
@@ -66,46 +51,53 @@ function serial<T>(job: () => Promise<T>): Promise<T> {
   })
 }
 
-/** Points prod's route for the phone at this worktree, or explains why not. Never throws. */
-async function routeTo(row: Row, publicUrl: string | null, notes: string[]) {
-  if (!row.phone) return
+/** Points prod's route for the phone at this worktree, or notes why not. Never throws. */
+async function routeTo(meta: ops.Meta, publicUrl: string | null, notes: string[]) {
+  if (!meta.phone) return
   if (!publicUrl) {
-    notes.push(`Not routing ${row.phone}: the worktree has no tunnel. Start it first.`)
+    notes.push(`Not routing ${meta.phone}: the worktree has no tunnel. Start it first.`)
     return
   }
-  await ops.upsertRoute(row.phone, row.name, publicUrl).then(
-    () => notes.push(`${row.phone} → ${row.name} for ${ops.config.routeTtlHours}h (start again to renew).`),
-    (err: Error) => notes.push(`Could not route ${row.phone} in production: ${err.message}`),
+  await ops.upsertRoute(meta.phone, meta.name, publicUrl).then(
+    () => notes.push(`${meta.phone} → ${meta.name} for ${ops.config.routeTtlHours}h (start again to renew).`),
+    (err: Error) => notes.push(`Could not route ${meta.phone} in production: ${err.message}`),
   )
 }
-async function unroute(row: Row, notes: string[]) {
-  if (!row.phone) return
-  await ops.deleteRoute(row.phone, row.name).catch((err: Error) => notes.push(`Could not drop the production route for ${row.phone}: ${err.message}`))
+async function unroute(meta: ops.Meta, notes: string[]) {
+  if (!meta.phone) return
+  await ops.deleteRoute(meta.phone, meta.name).catch((err: Error) => notes.push(`Could not drop the production route for ${meta.phone}: ${err.message}`))
 }
 
-extension.resource(worktreeList, async ({ db }) => ({ repo: ops.config.repo, worktrees: await describe(rows(db)) }))
-extension.tool(listWorktrees, async ({ db }) => ({ repo: ops.config.repo, worktrees: await describe(rows(db)) }))
+/** A number belongs to one worktree: take it away from whoever had it. */
+async function releasePhone(phone: string, except: string, notes: string[]) {
+  for (const other of await ops.readRegistry()) {
+    if (other.phone !== phone || other.name === except) continue
+    await ops.writeMeta({ ...other, phone: null })
+    await ops.writeWorktreeEnv(other.path, { DEV_PHONE: '', WHATSAPP_ALLOWLIST: '' })
+    notes.push(`Moved ${phone} away from ${other.name} (restart it to apply its empty allowlist).`)
+  }
+}
 
-extension.tool(createWorktree, (context, input) =>
+extension.resource(worktreeList, snapshot)
+extension.tool(listWorktrees, snapshot)
+
+extension.tool(createWorktree, (_context, { name, phone, baseRef, start }) =>
   serial(async () => {
-    const { db } = context
-    const { name, phone, baseRef, start } = input
-    if (db.maybe(Row, `${SELECT} WHERE name = ?`, name)) throw new ops.DomainError(`A worktree named "${name}" already exists.`)
+    const registry = await ops.readRegistry()
+    if (registry.some((m) => m.name === name)) throw new ops.DomainError(`A worktree named "${name}" already exists.`)
     const path = join(ops.config.worktreesDir, name)
-    const gitBranch = `wt/${name}`
-    const neonBranchName = `wt/${name}`
-    const used = new Set(rows(db).map((r) => r.port))
+    const used = new Set(registry.map((m) => m.port))
     let port = ops.config.basePort
     while (used.has(port)) port++
     const notes: string[] = []
 
-    await ops.gitAddWorktree(path, gitBranch, baseRef)
+    await ops.gitAddWorktree(path, `wt/${name}`, baseRef)
     let neon: { id: string; databaseUrl: string } | undefined
     try {
-      neon = await ops.neonCreateBranch(neonBranchName)
+      neon = await ops.neonCreateBranch(`wt/${name}`)
       await ops.writeWorktreeEnv(path, {
         DATABASE_URL: neon.databaseUrl,
-        NEON_BRANCH: neonBranchName,
+        NEON_BRANCH: `wt/${name}`,
         PORT: String(port),
         PUBLIC_URL: '',
         WORKTREE_NAME: name,
@@ -125,87 +117,80 @@ extension.tool(createWorktree, (context, input) =>
       throw err
     }
 
-    if (phone) db.run(`UPDATE worktrees SET phone = NULL WHERE phone = ?`, phone)
-    db.run(
-      `INSERT INTO worktrees (name, path, git_branch, port, phone, neon_branch_id, neon_branch_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      name, path, gitBranch, port, phone ?? null, neon.id, neonBranchName, new Date().toISOString(),
-    )
+    if (phone) await releasePhone(phone, name, notes)
+    const meta: ops.Meta = {
+      name, path, gitBranch: `wt/${name}`, port, phone: phone ?? null,
+      neonBranchId: neon.id, neonBranchName: `wt/${name}`, createdAt: new Date().toISOString(),
+    }
+    await ops.writeMeta(meta)
     if (start) {
       const url = await ops.startProcesses(name, path, port).catch((err: Error) => {
         notes.push(`Created, but starting failed: ${err.message}`)
         return null
       })
-      await routeTo(rowFor(db, name), url, notes)
+      await routeTo(meta, url, notes)
     }
-    return { worktree: await describeOne(db, name), notes }
+    return { worktree: await describeOne(name), notes }
   }),
 )
 
-extension.tool(removeWorktree, ({ db }, { name, force }) =>
+extension.tool(removeWorktree, (_context, { name, force }) =>
   serial(async () => {
-    const row = rowFor(db, name)
+    const meta = await find(name)
     const notes: string[] = []
-    const git = await ops.gitState(row.path)
+    const git = await ops.gitState(meta.path)
     if (git.dirtyFiles && !force) {
       throw new ops.DomainError(`"${name}" has ${git.dirtyFiles} uncommitted file(s). Commit them, or remove with force.`)
     }
     await ops.stopUnits(name)
-    await unroute(row, notes)
-    await ops.neonDeleteBranch(row.neonBranchId)
-    await ops.gitRemoveWorktree(row.path)
-    db.run(`DELETE FROM worktrees WHERE name = ?`, name)
-    notes.push(`Kept git branch ${row.gitBranch}${git.aheadOfMain ? ` (${git.aheadOfMain} commit(s) ahead of main)` : ''}.`)
+    await unroute(meta, notes)
+    await ops.neonDeleteBranch(meta.neonBranchId)
+    await ops.gitRemoveWorktree(meta.path)
+    notes.push(`Kept git branch ${meta.gitBranch}${git.aheadOfMain ? ` (${git.aheadOfMain} commit(s) ahead of main)` : ''}.`)
     return { removed: name, notes }
   }),
 )
 
-extension.tool(setPhone, ({ db }, { name, phone }) =>
+extension.tool(setPhone, (_context, { name, phone }) =>
   serial(async () => {
-    const row = rowFor(db, name)
+    const meta = await find(name)
     const notes: string[] = []
-    if (row.phone && row.phone !== phone) await unroute(row, notes)
-    if (phone) {
-      // A number belongs to one worktree: take it from whoever had it.
-      const previous = db.maybe(Row, `${SELECT} WHERE phone = ? AND name != ?`, phone, name)
-      if (previous) {
-        await ops.writeWorktreeEnv(previous.path, { DEV_PHONE: '', WHATSAPP_ALLOWLIST: '' })
-        db.run(`UPDATE worktrees SET phone = NULL WHERE name = ?`, previous.name)
-        notes.push(`Moved ${phone} away from ${previous.name} (restart it to apply its empty allowlist).`)
-      }
-    }
-    db.run(`UPDATE worktrees SET phone = ? WHERE name = ?`, phone, name)
-    await ops.writeWorktreeEnv(row.path, { DEV_PHONE: phone ?? '', WHATSAPP_ALLOWLIST: phone ?? '' })
-    const state = await ops.processState(name, row.path, row.port)
+    if (meta.phone && meta.phone !== phone) await unroute(meta, notes)
+    if (phone) await releasePhone(phone, name, notes)
+    const updated = { ...meta, phone }
+    await ops.writeMeta(updated)
+    await ops.writeWorktreeEnv(meta.path, { DEV_PHONE: phone ?? '', WHATSAPP_ALLOWLIST: phone ?? '' })
+    const state = await ops.processState(name, meta.path, meta.port)
     let url = state.publicUrl
     if (state.app !== 'stopped') {
       // The allowlist is read at startup.
-      url = await ops.startProcesses(name, row.path, row.port).catch((err: Error) => {
+      url = await ops.startProcesses(name, meta.path, meta.port).catch((err: Error) => {
         notes.push(`Restart failed: ${err.message}`)
         return null
       })
     }
-    await routeTo(rowFor(db, name), url, notes)
-    return { worktree: await describeOne(db, name), notes }
+    await routeTo(updated, url, notes)
+    return { worktree: await describeOne(name), notes }
   }),
 )
 
-extension.tool(startWorktree, ({ db }, { name }) =>
+extension.tool(startWorktree, (_context, { name }) =>
   serial(async () => {
-    const row = rowFor(db, name)
+    const meta = await find(name)
     const notes: string[] = []
-    const url = await ops.startProcesses(name, row.path, row.port)
-    await routeTo(row, url, notes)
-    return { worktree: await describeOne(db, name), notes }
+    const url = await ops.startProcesses(name, meta.path, meta.port)
+    await routeTo(meta, url, notes)
+    return { worktree: await describeOne(name), notes }
   }),
 )
 
-extension.tool(stopWorktree, ({ db }, { name }) =>
+extension.tool(stopWorktree, (_context, { name }) =>
   serial(async () => {
-    const row = rowFor(db, name)
+    const meta = await find(name)
     const notes: string[] = []
     await ops.stopUnits(name)
-    await unroute(row, notes)
-    return { worktree: await describeOne(db, name), notes }
+    await unroute(meta, notes)
+    return { worktree: await describeOne(name), notes }
   }),
 )
 

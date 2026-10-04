@@ -247,3 +247,35 @@ export async function routeStates(entries: { phone: string | null; name: string;
 export async function closeProd() {
   await prod?.end().catch(() => {})
 }
+
+// ---------- registry: <worktree>/.atmos/worktree.json, discovered through `git worktree list` ----------
+
+export type Meta = {
+  name: string
+  path: string
+  gitBranch: string
+  port: number
+  phone: string | null
+  neonBranchId: string
+  neonBranchName: string
+  createdAt: string
+}
+
+const metaFile = (path: string) => join(atmosDir(path), 'worktree.json')
+
+export async function readRegistry(): Promise<Meta[]> {
+  const out = await sh('git', ['worktree', 'list', '--porcelain'], { cwd: config.repo }).catch(() => '')
+  const paths = out.split('\n').flatMap((l) => (l.startsWith('worktree ') ? [l.slice('worktree '.length)] : []))
+  const metas = await Promise.all(
+    paths.filter((p) => p.startsWith(`${config.worktreesDir}/`)).map(async (p) => {
+      const raw = await readFile(metaFile(p), 'utf8').catch(() => null)
+      return raw ? ({ ...(JSON.parse(raw) as Meta), path: p }) : null
+    }),
+  )
+  return metas.filter((m): m is Meta => m !== null).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+}
+
+export async function writeMeta(meta: Meta) {
+  await mkdir(atmosDir(meta.path), { recursive: true })
+  await writeFile(metaFile(meta.path), JSON.stringify(meta, null, 2) + '\n')
+}

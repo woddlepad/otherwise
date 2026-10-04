@@ -9333,12 +9333,12 @@ var require_query = __commonJS({
       handlePortalSuspended(connection) {
         this._getRows(connection, this.rows);
       }
-      _getRows(connection, rows2) {
+      _getRows(connection, rows) {
         connection.execute({
           portal: this.portal,
-          rows: rows2
+          rows
         });
-        if (!rows2) {
+        if (!rows) {
           connection.sync();
         } else {
           connection.flush();
@@ -9783,7 +9783,7 @@ var require_serializer = __commonJS({
         return emptyExecute;
       }
       const portal = config3.portal || "";
-      const rows2 = config3.rows || 0;
+      const rows = config3.rows || 0;
       const portalLength = Buffer.byteLength(portal);
       const len = 4 + portalLength + 1 + 4;
       const buff = Buffer.allocUnsafe(1 + len);
@@ -9791,7 +9791,7 @@ var require_serializer = __commonJS({
       buff.writeInt32BE(len, 1);
       buff.write(portal, 5, "utf-8");
       buff[portalLength + 5] = 0;
-      buff.writeUInt32BE(rows2, buff.length - 4);
+      buff.writeUInt32BE(rows, buff.length - 4);
       return buff;
     };
     var cancel = (processID, secretKey) => {
@@ -12039,7 +12039,7 @@ var require_query2 = __commonJS({
       const self = this;
       this.native = client.native;
       client.native.arrayMode = this._arrayMode;
-      let after = function(err, rows2, results) {
+      let after = function(err, rows, results) {
         client.native.arrayMode = false;
         setImmediate(function() {
           self.emit("_done");
@@ -12049,13 +12049,13 @@ var require_query2 = __commonJS({
         }
         if (self._emitRowEvents) {
           if (results.length > 1) {
-            rows2.forEach((rowOfRows, i) => {
+            rows.forEach((rowOfRows, i) => {
               rowOfRows.forEach((row) => {
                 self.emit("row", row, results[i]);
               });
             });
           } else {
-            rows2.forEach(function(row) {
+            rows.forEach(function(row) {
               self.emit("row", row, results);
             });
           }
@@ -38909,11 +38909,11 @@ async function deleteRoute(phone, worktree) {
 async function routeStates(entries) {
   const states = /* @__PURE__ */ new Map();
   const phones = entries.flatMap((e) => e.phone ? [e.phone] : []);
-  let rows2 = [];
+  let rows = [];
   let error51 = null;
   if (phones.length) {
     try {
-      rows2 = (await (await prodDb()).query(
+      rows = (await (await prodDb()).query(
         `SELECT phone, worktree, target_url, expires_at, expires_at > now() AS live FROM dev_routes WHERE phone = ANY($1)`,
         [phones]
       )).rows;
@@ -38922,7 +38922,7 @@ async function routeStates(entries) {
     }
   }
   for (const e of entries) {
-    const r = rows2.find((row) => row.phone === e.phone);
+    const r = rows.find((row) => row.phone === e.phone);
     const state = !e.phone ? { status: "none", expiresAt: null, message: null } : error51 ? { status: "unknown", expiresAt: null, message: error51 } : !r ? { status: "none", expiresAt: null, message: null } : r.worktree !== e.name ? { status: "elsewhere", expiresAt: r.expires_at.toISOString(), message: `routed to ${r.worktree}` } : {
       status: r.live ? "active" : "expired",
       expiresAt: r.expires_at.toISOString(),
@@ -38936,40 +38936,44 @@ async function closeProd() {
   await prod?.end().catch(() => {
   });
 }
+var metaFile = (path) => join2(atmosDir(path), "worktree.json");
+async function readRegistry() {
+  const out = await sh("git", ["worktree", "list", "--porcelain"], { cwd: config2.repo }).catch(() => "");
+  const paths = out.split("\n").flatMap((l) => l.startsWith("worktree ") ? [l.slice("worktree ".length)] : []);
+  const metas = await Promise.all(
+    paths.filter((p) => p.startsWith(`${config2.worktreesDir}/`)).map(async (p) => {
+      const raw = await readFile(metaFile(p), "utf8").catch(() => null);
+      return raw ? { ...JSON.parse(raw), path: p } : null;
+    })
+  );
+  return metas.filter((m) => m !== null).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+async function writeMeta(meta3) {
+  await mkdir(atmosDir(meta3.path), { recursive: true });
+  await writeFile(metaFile(meta3.path), JSON.stringify(meta3, null, 2) + "\n");
+}
 
 // server/server.ts
-var Row = external_exports.object({
-  name: external_exports.string(),
-  path: external_exports.string(),
-  gitBranch: external_exports.string(),
-  port: external_exports.number().int(),
-  phone: external_exports.string().nullable(),
-  neonBranchId: external_exports.string(),
-  neonBranchName: external_exports.string(),
-  createdAt: external_exports.string()
-});
-var SELECT = `SELECT name, path, git_branch AS gitBranch, port, phone, neon_branch_id AS neonBranchId,
-  neon_branch_name AS neonBranchName, created_at AS createdAt FROM worktrees`;
 var extension = createSqliteExtension(extensionContract, { root: new URL("..", import.meta.url) });
-function rows(db) {
-  return db.all(Row, `${SELECT} ORDER BY created_at`);
-}
-function rowFor(db, name) {
-  const row = db.maybe(Row, `${SELECT} WHERE name = ?`, name);
-  if (!row) throw new DomainError(`No worktree named "${name}".`);
-  return row;
+async function find(name) {
+  const meta3 = (await readRegistry()).find((m) => m.name === name);
+  if (!meta3) throw new DomainError(`No worktree named "${name}".`);
+  return meta3;
 }
 async function describe3(list) {
   const live = await Promise.all(
-    list.map(async (r) => ({ ...r, ...await processState(r.name, r.path, r.port), ...await gitState(r.path) }))
+    list.map(async (m) => ({ ...m, ...await processState(m.name, m.path, m.port), ...await gitState(m.path) }))
   );
   const routes = await routeStates(live);
   return live.map((w) => ({ ...w, route: routes.get(w.name) ?? { status: "unknown", expiresAt: null, message: null } }));
 }
-async function describeOne(db, name) {
-  const [worktree] = await describe3([rowFor(db, name)]);
+async function describeOne(name) {
+  const [worktree] = await describe3([await find(name)]);
   if (!worktree) throw new DomainError(`No worktree named "${name}".`);
   return worktree;
+}
+async function snapshot() {
+  return { repo: config2.repo, worktrees: await describe3(await readRegistry()) };
 }
 var queue = Promise.resolve();
 function serial(job) {
@@ -38981,43 +38985,48 @@ function serial(job) {
     });
   });
 }
-async function routeTo(row, publicUrl, notes) {
-  if (!row.phone) return;
+async function routeTo(meta3, publicUrl, notes) {
+  if (!meta3.phone) return;
   if (!publicUrl) {
-    notes.push(`Not routing ${row.phone}: the worktree has no tunnel. Start it first.`);
+    notes.push(`Not routing ${meta3.phone}: the worktree has no tunnel. Start it first.`);
     return;
   }
-  await upsertRoute(row.phone, row.name, publicUrl).then(
-    () => notes.push(`${row.phone} \u2192 ${row.name} for ${config2.routeTtlHours}h (start again to renew).`),
-    (err) => notes.push(`Could not route ${row.phone} in production: ${err.message}`)
+  await upsertRoute(meta3.phone, meta3.name, publicUrl).then(
+    () => notes.push(`${meta3.phone} \u2192 ${meta3.name} for ${config2.routeTtlHours}h (start again to renew).`),
+    (err) => notes.push(`Could not route ${meta3.phone} in production: ${err.message}`)
   );
 }
-async function unroute(row, notes) {
-  if (!row.phone) return;
-  await deleteRoute(row.phone, row.name).catch((err) => notes.push(`Could not drop the production route for ${row.phone}: ${err.message}`));
+async function unroute(meta3, notes) {
+  if (!meta3.phone) return;
+  await deleteRoute(meta3.phone, meta3.name).catch((err) => notes.push(`Could not drop the production route for ${meta3.phone}: ${err.message}`));
 }
-extension.resource(worktreeList, async ({ db }) => ({ repo: config2.repo, worktrees: await describe3(rows(db)) }));
-extension.tool(listWorktrees, async ({ db }) => ({ repo: config2.repo, worktrees: await describe3(rows(db)) }));
+async function releasePhone(phone, except, notes) {
+  for (const other of await readRegistry()) {
+    if (other.phone !== phone || other.name === except) continue;
+    await writeMeta({ ...other, phone: null });
+    await writeWorktreeEnv(other.path, { DEV_PHONE: "", WHATSAPP_ALLOWLIST: "" });
+    notes.push(`Moved ${phone} away from ${other.name} (restart it to apply its empty allowlist).`);
+  }
+}
+extension.resource(worktreeList, snapshot);
+extension.tool(listWorktrees, snapshot);
 extension.tool(
   createWorktree,
-  (context, input) => serial(async () => {
-    const { db } = context;
-    const { name, phone, baseRef, start } = input;
-    if (db.maybe(Row, `${SELECT} WHERE name = ?`, name)) throw new DomainError(`A worktree named "${name}" already exists.`);
+  (_context, { name, phone, baseRef, start }) => serial(async () => {
+    const registry2 = await readRegistry();
+    if (registry2.some((m) => m.name === name)) throw new DomainError(`A worktree named "${name}" already exists.`);
     const path = join3(config2.worktreesDir, name);
-    const gitBranch = `wt/${name}`;
-    const neonBranchName = `wt/${name}`;
-    const used = new Set(rows(db).map((r) => r.port));
+    const used = new Set(registry2.map((m) => m.port));
     let port = config2.basePort;
     while (used.has(port)) port++;
     const notes = [];
-    await gitAddWorktree(path, gitBranch, baseRef);
+    await gitAddWorktree(path, `wt/${name}`, baseRef);
     let neon;
     try {
-      neon = await neonCreateBranch(neonBranchName);
+      neon = await neonCreateBranch(`wt/${name}`);
       await writeWorktreeEnv(path, {
         DATABASE_URL: neon.databaseUrl,
-        NEON_BRANCH: neonBranchName,
+        NEON_BRANCH: `wt/${name}`,
         PORT: String(port),
         PUBLIC_URL: "",
         WORKTREE_NAME: name,
@@ -39037,92 +39046,85 @@ extension.tool(
       });
       throw err;
     }
-    if (phone) db.run(`UPDATE worktrees SET phone = NULL WHERE phone = ?`, phone);
-    db.run(
-      `INSERT INTO worktrees (name, path, git_branch, port, phone, neon_branch_id, neon_branch_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    if (phone) await releasePhone(phone, name, notes);
+    const meta3 = {
       name,
       path,
-      gitBranch,
+      gitBranch: `wt/${name}`,
       port,
-      phone ?? null,
-      neon.id,
-      neonBranchName,
-      (/* @__PURE__ */ new Date()).toISOString()
-    );
+      phone: phone ?? null,
+      neonBranchId: neon.id,
+      neonBranchName: `wt/${name}`,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await writeMeta(meta3);
     if (start) {
       const url2 = await startProcesses(name, path, port).catch((err) => {
         notes.push(`Created, but starting failed: ${err.message}`);
         return null;
       });
-      await routeTo(rowFor(db, name), url2, notes);
+      await routeTo(meta3, url2, notes);
     }
-    return { worktree: await describeOne(db, name), notes };
+    return { worktree: await describeOne(name), notes };
   })
 );
 extension.tool(
   removeWorktree,
-  ({ db }, { name, force }) => serial(async () => {
-    const row = rowFor(db, name);
+  (_context, { name, force }) => serial(async () => {
+    const meta3 = await find(name);
     const notes = [];
-    const git = await gitState(row.path);
+    const git = await gitState(meta3.path);
     if (git.dirtyFiles && !force) {
       throw new DomainError(`"${name}" has ${git.dirtyFiles} uncommitted file(s). Commit them, or remove with force.`);
     }
     await stopUnits(name);
-    await unroute(row, notes);
-    await neonDeleteBranch(row.neonBranchId);
-    await gitRemoveWorktree(row.path);
-    db.run(`DELETE FROM worktrees WHERE name = ?`, name);
-    notes.push(`Kept git branch ${row.gitBranch}${git.aheadOfMain ? ` (${git.aheadOfMain} commit(s) ahead of main)` : ""}.`);
+    await unroute(meta3, notes);
+    await neonDeleteBranch(meta3.neonBranchId);
+    await gitRemoveWorktree(meta3.path);
+    notes.push(`Kept git branch ${meta3.gitBranch}${git.aheadOfMain ? ` (${git.aheadOfMain} commit(s) ahead of main)` : ""}.`);
     return { removed: name, notes };
   })
 );
 extension.tool(
   setPhone,
-  ({ db }, { name, phone }) => serial(async () => {
-    const row = rowFor(db, name);
+  (_context, { name, phone }) => serial(async () => {
+    const meta3 = await find(name);
     const notes = [];
-    if (row.phone && row.phone !== phone) await unroute(row, notes);
-    if (phone) {
-      const previous = db.maybe(Row, `${SELECT} WHERE phone = ? AND name != ?`, phone, name);
-      if (previous) {
-        await writeWorktreeEnv(previous.path, { DEV_PHONE: "", WHATSAPP_ALLOWLIST: "" });
-        db.run(`UPDATE worktrees SET phone = NULL WHERE name = ?`, previous.name);
-        notes.push(`Moved ${phone} away from ${previous.name} (restart it to apply its empty allowlist).`);
-      }
-    }
-    db.run(`UPDATE worktrees SET phone = ? WHERE name = ?`, phone, name);
-    await writeWorktreeEnv(row.path, { DEV_PHONE: phone ?? "", WHATSAPP_ALLOWLIST: phone ?? "" });
-    const state = await processState(name, row.path, row.port);
+    if (meta3.phone && meta3.phone !== phone) await unroute(meta3, notes);
+    if (phone) await releasePhone(phone, name, notes);
+    const updated = { ...meta3, phone };
+    await writeMeta(updated);
+    await writeWorktreeEnv(meta3.path, { DEV_PHONE: phone ?? "", WHATSAPP_ALLOWLIST: phone ?? "" });
+    const state = await processState(name, meta3.path, meta3.port);
     let url2 = state.publicUrl;
     if (state.app !== "stopped") {
-      url2 = await startProcesses(name, row.path, row.port).catch((err) => {
+      url2 = await startProcesses(name, meta3.path, meta3.port).catch((err) => {
         notes.push(`Restart failed: ${err.message}`);
         return null;
       });
     }
-    await routeTo(rowFor(db, name), url2, notes);
-    return { worktree: await describeOne(db, name), notes };
+    await routeTo(updated, url2, notes);
+    return { worktree: await describeOne(name), notes };
   })
 );
 extension.tool(
   startWorktree,
-  ({ db }, { name }) => serial(async () => {
-    const row = rowFor(db, name);
+  (_context, { name }) => serial(async () => {
+    const meta3 = await find(name);
     const notes = [];
-    const url2 = await startProcesses(name, row.path, row.port);
-    await routeTo(row, url2, notes);
-    return { worktree: await describeOne(db, name), notes };
+    const url2 = await startProcesses(name, meta3.path, meta3.port);
+    await routeTo(meta3, url2, notes);
+    return { worktree: await describeOne(name), notes };
   })
 );
 extension.tool(
   stopWorktree,
-  ({ db }, { name }) => serial(async () => {
-    const row = rowFor(db, name);
+  (_context, { name }) => serial(async () => {
+    const meta3 = await find(name);
     const notes = [];
     await stopUnits(name);
-    await unroute(row, notes);
-    return { worktree: await describeOne(db, name), notes };
+    await unroute(meta3, notes);
+    return { worktree: await describeOne(name), notes };
   })
 );
 extension.app(appDocument);
