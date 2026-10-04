@@ -1,6 +1,6 @@
 import { createStep, createWorkflow } from '@mastra/core/workflows';
 import { z } from 'zod';
-import { CATEGORIES, diversify } from '../../lib/events/classify';
+import { CATEGORIES, STATUSES, diversify } from '../../lib/events/classify';
 import { discover, loadContext } from '../../lib/events/discover';
 import { sendPicks, toPicks } from '../../lib/events/notify';
 
@@ -14,8 +14,14 @@ const pickSchema = z.object({
   tags: z.array(z.string()),
   when: z.string(),
   venue: z.string().nullable(),
+  address: z.string().nullable(),
+  city: z.string().nullable(),
+  distanceKm: z.number().nullable(),
   price: z.string().nullable(),
   url: z.string(),
+  bookingUrl: z.string().nullable(),
+  status: z.enum(STATUSES),
+  onSaleAt: z.string().nullable(),
   why: z.string(),
   matches: z.array(z.string()),
   confidence: z.number(),

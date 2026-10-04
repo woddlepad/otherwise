@@ -8,6 +8,7 @@ import { scout } from './agents/scout';
 import { billingCheckout, billingRedeem, billingSuccess, devCredits, stripeWebhook, walletPage } from './routes/billing';
 import { connectStart, onboardComplete, onboardPage } from './routes/onboarding';
 import { cronDiscover, devDiscover } from './routes/discover';
+import { eventHandoff } from './routes/handoff';
 import { devChat, whatsappWebhook } from './routes/whatsapp';
 import { discoverEvents } from './workflows/discover';
 import { onboardUser } from './workflows/onboard';
@@ -35,6 +36,7 @@ export const mastra = new Mastra({
       devCredits,
       cronDiscover,
       devDiscover,
+      eventHandoff,
       registerApiRoute('/health', {
         method: 'GET',
         requiresAuth: false,

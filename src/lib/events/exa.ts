@@ -5,7 +5,7 @@ import { isoDay } from './time';
 import type { DiscoveryContext } from './types';
 
 let exa: Exa | undefined;
-function getExa() {
+export function getExa() {
   if (!process.env.EXA_API_KEY) throw new Error('EXA_API_KEY is not set');
   exa ??= new Exa(process.env.EXA_API_KEY);
   return exa;
@@ -25,12 +25,13 @@ const PAGE_EVENTS_SCHEMA = {
           start: { type: 'string', description: 'local start as ISO 8601 incl. year, e.g. 2026-10-17T19:00; date only if no time' },
           venueName: { type: 'string', description: 'venue name only, no address' },
           address: { type: 'string', description: 'street address if shown, else empty' },
-          city: { type: 'string', description: 'city the venue is in, if shown or obvious from the address' },
-          online: { type: 'boolean', description: 'true if it is an online/livestream event' },
+          city: { type: 'string', description: 'city the venue is in, as on the page' },
+          online: { type: 'boolean', description: 'true only for online/livestream events' },
           price: { type: 'string', description: 'as written on the page, e.g. "$20–60"; empty if not shown' },
           url: { type: 'string', description: 'detail page for this event if linked, else empty' },
-          bookingUrl: { type: 'string', description: 'direct "Buy tickets"/"Register"/"RSVP" link for this event, else empty' },
-          status: { type: 'string', enum: [...STATUSES], description: 'ticket availability as stated on the page' },
+          bookingUrl: { type: 'string', description: 'direct Buy tickets / Register / RSVP link for this event, else empty' },
+          status: { type: 'string', enum: [...STATUSES], description: 'availability as stated; unknown if not stated' },
+          onSaleAt: { type: 'string', description: 'ISO date-time sales open, only if not yet on sale' },
           category: { type: 'string', enum: [...CATEGORIES] },
           tags: {
             type: 'array',
@@ -49,7 +50,7 @@ export type ExtractedEvent = {
   title: string;
   start: string;
   venueName?: string | null;
-  venue?: string | null;             // schema v2 name, still read from older cache rows
+  venue?: string | null;             // schema v2 name (name + address mixed), still read from older cache rows
   address?: string | null;
   city?: string | null;
   online?: boolean | null;
@@ -57,6 +58,7 @@ export type ExtractedEvent = {
   url?: string | null;
   bookingUrl?: string | null;
   status?: string | null;
+  onSaleAt?: string | null;
   category?: string | null;
   tags?: string[] | null;
 };
@@ -66,12 +68,13 @@ export type PageEvents = {
   pageKind: 'single_event' | 'listing' | 'other';
   events: ExtractedEvent[];
   query: string;
+  extractedAt?: string;              // ISO; when Exa extracted the page (cache row time); absent = just now
 };
 
 function summaryQuery(ctx: DiscoveryContext) {
   const from = isoDay(ctx.window.from, ctx.timezone);
   const to = isoDay(ctx.window.to, ctx.timezone);
-  return `Every event, concert or screening on this page taking place between ${from} and ${to} in or near ${ctx.city}: title, local start date-time, venue, price as written, detail and booking links, ticket availability, category and genre tags. One item per showtime. Skip items whose date is not stated on the page; never fill in today's date as a placeholder.`;
+  return `Every event, concert or screening on this page taking place between ${from} and ${to} in or near ${ctx.city}: title, local start date-time, venue name, street address and city, online or not, price as written, detail link, direct booking link, ticket availability (on sale, few left, sold out, …) and on-sale date, category and genre tags. One item per showtime. Skip items whose date is not stated on the page; never fill in today's date as a placeholder.`;
 }
 
 function parseSummary(summary: unknown): { pageKind: PageEvents['pageKind']; events: ExtractedEvent[] } | null {

@@ -29,10 +29,14 @@ function passesHardFilters(e: StoredEvent, ctx: DiscoveryContext) {
   return !dislikes.some(d => d.length > 2 && new RegExp(`\\b${d.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(text));
 }
 
-function line(n: number, e: StoredEvent, tz: string) {
+function line(n: number, e: StoredEvent, tz: string, city: string) {
   const when = e.hasTime ? formatLocal(e.startsAt, tz) : `${formatLocal(e.startsAt, tz, false)} (time tbc)`;
   const tags = e.tags.length ? ` [${e.tags.join(', ')}]` : '';
-  return `${n}. ${e.title} | ${CATEGORY_LABEL[e.category]}${tags} | ${when} (${e.attrs.timeOfDay}) | ${e.venue ?? '?'} | ${e.priceText ?? 'price ?'}`;
+  const where = [e.venue ?? '?', e.city && e.city.toLowerCase() !== city.toLowerCase() ? e.city : null, e.distanceKm !== null ? `${e.distanceKm} km from home` : null]
+    .filter(Boolean)
+    .join(', ');
+  const status = e.status !== 'unknown' && e.status !== 'on_sale' ? ` | ${e.status.replace(/_/g, ' ')}` : '';
+  return `${n}. ${e.title} | ${CATEGORY_LABEL[e.category]}${tags} | ${when} (${e.attrs.timeOfDay}) | ${where} | ${e.priceText ?? 'price ?'}${status}`;
 }
 
 async function rate(events: StoredEvent[], ctx: DiscoveryContext) {
@@ -45,7 +49,7 @@ ${tasteForPrompt(ctx.taste)}
 ${ctx.interests ? `Stated interests: ${ctx.interests}` : ''}
 
 Candidates:
-${events.map((e, i) => line(i + 1, e, ctx.timezone)).join('\n')}
+${events.map((e, i) => line(i + 1, e, ctx.timezone, ctx.city)).join('\n')}
 
 Return a rating for every candidate number.`;
   const res = await scout.generate(prompt, { structuredOutput: { schema: ratingSchema, errorStrategy: 'strict', jsonPromptInjection: true } });

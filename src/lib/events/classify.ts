@@ -5,7 +5,7 @@ import { utcToLocal } from './time';
  * links rank below a venue's own page and their terms say nothing about the real cancellation policy.
  */
 export const AGGREGATORS =
-  /bandsintown|songkick|jambase|consequence\.net|concerts50|eventworld|venunite|jazzdatebook|jazznearyou|localgroove|broadwayworld|patchbay|allevents|evvnt|sanfrancisco\.theater|thebolditalic|sanjose\.com|sfstation|concertful|artelize|scenef|filmonfilm|dothebay|funcheap|timeout|ma\.to|stubhub|vividseats|seatgeek|ticketsmarter|ticketsinventory|concertfix|eventbrite\.com\/d\//;
+  /bandsintown|songkick|jambase|consequence\.net|concerts50|eventworld|venunite|jazzdatebook|jazznearyou|localgroove|broadwayworld|patchbay|allevents|evvnt|sanfrancisco\.theater|thebolditalic|sanjose\.com|sfstation|concertful|artelize|scenef|filmonfilm|dothebay|funcheap|timeout|ma\.to|stubhub|vividseats|seatgeek|ticketsmarter|gotickets|ticketsinventory|concertfix|eventbrite\.com\/d\//;
 
 /**
  * Event taxonomy. `category` is one fixed value (filters, diversity, UI grouping); `tags` are free lowercase
@@ -119,13 +119,13 @@ export function diversify<T extends { category: EventCategory }>(ranked: T[], n:
   return out;
 }
 
-/** Ticket availability as stated on the page. Re-checked live for shortlisted events (status.ts). */
+/** Ticket availability as stated on the page (schema v3). */
 export const STATUSES = [
   'on_sale',          // tickets/registration open
-  'few_left',         // "almost sold out", "limited", "low availability"
-  'waitlist',         // sold out but a waitlist / standby exists
+  'few_left',         // "almost sold out", "limited availability", "low tickets"
+  'waitlist',         // sold out but a waitlist / standby line exists
   'sold_out',
-  'not_yet_on_sale',  // announced, sales open later
+  'not_yet_on_sale',  // announced, sales open later (see onSaleAt)
   'door_only',        // no advance sales, pay at the door / walk-in
   'free_rsvp',        // free, registration or RSVP required
   'free_entry',       // free, no registration
@@ -135,17 +135,23 @@ export const STATUSES = [
 ] as const;
 export type EventStatus = (typeof STATUSES)[number];
 
+/** Tolerant mapping of whatever the extractor (or a page) says to an EventStatus. */
 export function normaliseStatus(raw: unknown): EventStatus {
   const s = typeof raw === 'string' ? raw.toLowerCase().trim().replace(/[\s-]+/g, '_') : '';
+  if (!s) return 'unknown';
   if ((STATUSES as readonly string[]).includes(s)) return s as EventStatus;
-  if (/sold_?out/.test(s)) return 'sold_out';
-  if (/wait/.test(s)) return 'waitlist';
+  if (/wait_?list|standby/.test(s)) return 'waitlist';
+  if (/sold_?out|no_tickets|unavailable/.test(s)) return 'sold_out';
   if (/cancel/.test(s)) return 'cancelled';
   if (/postpon|reschedul/.test(s)) return 'postponed';
-  if (/few|limited|low/.test(s)) return 'few_left';
-  if (/available|on_sale|tickets/.test(s)) return 'on_sale';
+  if (/not_yet|coming_soon|on_sale_(soon|at|on|date)|presale|pre_sale|announced/.test(s)) return 'not_yet_on_sale';
+  if (/few|limited|low|almost|selling_fast|last/.test(s)) return 'few_left';
+  if (/door|walk_?in|at_the_door/.test(s)) return 'door_only';
+  if (/free/.test(s)) return /rsvp|regist|sign_?up/.test(s) ? 'free_rsvp' : 'free_entry';
+  if (/rsvp|regist/.test(s)) return 'free_rsvp';
+  if (/available|on_?sale|tickets|buy|open/.test(s)) return 'on_sale';
   return 'unknown';
 }
 
 /** Statuses that make an event useless to suggest. */
-export const DEAD_STATUSES: EventStatus[] = ['sold_out', 'cancelled', 'postponed'];
+export const DEAD_STATUSES: readonly EventStatus[] = ['sold_out', 'cancelled', 'postponed'];

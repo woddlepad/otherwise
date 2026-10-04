@@ -163,3 +163,156 @@ P0 ≈ 3 h. That leaves ~1.5 h buffer for integration, demo prep and the deploye
 - Neon gateway 200k TPM: scoring prompt must stay compact (≤40 candidates, ~60 tokens each).
 - Structured output through `neon/claude-*` is untested: use `errorStrategy:'fallback'` and `jsonPromptInjection:'auto'` if needed.
 - Public Mastra API routes on the Neon URL (no auth): don't expose `/dev/*` in production.
+
+## 8. Next: event schema v3 (PLANNING, not built)
+
+Requirements gathered 2026-10-04 ~13:00 PT: precise location, venue identity, richer cancellation policy, a booking URL the
+booking agent can open, and the latest availability status.
+
+### 8.1 Per-event extraction (Exa `summary.schema`, per page; bump page-cache version)
+| Field | Type | Notes |
+|---|---|---|
+| title, start, price, category, tags | (as today) | |
+| `venueName` | string | name only (today `venue` mixes name + address) |
+| `address` | string | street address if shown |
+| `city` | string | as on the page; replaces "assume the searched city" (Oakland/Santa Clara were stored as SF) |
+| `online` | boolean | livestream/online |
+| `url` | string | detail/info page |
+| `bookingUrl` | string | direct "Buy tickets / Register / RSVP" link; may differ from `url` (e.g. Roxie film page → Veezi checkout) |
+| `status` | enum | `on_sale` · `few_left` · `waitlist` · `sold_out` · `not_yet_on_sale` · `door_only` · `free_rsvp` · `free_entry` · `cancelled` · `postponed` · `unknown` |
+| `onSaleAt` | string? | for `not_yet_on_sale` |
+
+Risk: 12+ properties per item; Exa documents no limit for `summary.schema`, but quality may drop. Test on the SF set before adopting;
+fallback is a second, small per-page call only for shortlisted events.
+
+### 8.2 Status freshness ("latest status")
+- Extraction status is as old as the page cache (≤24 h) + Exa's cache (`maxAgeHours: 24`).
+- **Live re-check for the shortlist only** (≤10 events/run): `/contents` on `bookingUrl ?? url` with `maxAgeHours: 1`
+  (or `0` = live crawl, +~10 s) and a tiny schema `{status, price, bookingUrl, onSaleAt}`. Store `status`, `status_checked_at`.
+- Rules (code): `sold_out` / `cancelled` / `postponed` → drop; `waitlist` → ask only, say "waitlist"; `not_yet_on_sale` → ask, mention `onSaleAt`;
+  `few_left` → mention urgency; `unknown` → allowed but never booked unasked.
+- Pages behind bot walls (Ticketmaster etc.) won't crawl → status `unknown`; the booking agent checks for real in the browser.
+
+### 8.3 Venues table (new)
+`venues(id, name, norm_name, address, city, domain, lat, lng, created_at)`, unique `(norm_name, city)`; `events.venue_id` FK.
+- Merges "Cobb's Comedy Club" / "Cobbs Comedy Club" / "Cobb's …, 915 Columbus Ave" into one row.
+- Cancellation policy moves from `venue_policies(domain)` onto the venue (keeps per-event override for Eventbrite/Luma/DICE).
+- `lat/lng` empty until a geocoder is chosen (Nominatim free 1 req/s, or Google with a key); then distance from the user's home.
+
+### 8.4 Cancellation policy additions
+- `cancelMethod`: `online_self_service` · `email` · `phone` · `box_office` · `not_possible` · `unknown`, plus `cancelContact` (URL/email).
+- `transferable`: boolean (Black Cat: "no refunds, tickets transferable").
+- Gate for booking unasked gains: method must be one the agent can do itself (`online_self_service` or `email` via AgentMail).
+- Booking agent must re-read the policy on the actual checkout page and abort if it's worse than what the user was shown.
+
+### 8.5 Booking handoff contract (what event search gives the booking agent)
+`getBookingHandoff(eventId)` →
+```ts
+{ eventId, title, startsAt /*ISO*/, startLocal, timezone,
+  venue: { name, address, city }, online,
+  bookingUrl /*open this*/, detailUrl, sourcePageUrl,
+  priceEstimate: { text, minCents, currency } /*never charge on this*/,
+  status, statusCheckedAt,
+  cancellation: { kind, cancelBy, fee, method, contact, transferable, quote, sourceUrl },
+  ticketsWanted /*taste.usualTicketCount*/, decision: { action, reason }, suggestionId }
+```
+Also included in every `find-events` pick, so the concierge can pass it on. **Agree this shape with the booking-agent owner.**
+
+### 8.6 Users
+`users` exists (phone, name, city, timezone, interests, email, onboarding, agentmail_inbox_id, kernel_profile, stripe_customer_id).
+No home location: `homeArea` is only text in `taste_profiles.profile`. For distance, add `users.home_lat/home_lng` (geocode homeArea
+once) — only if we do geocoding.
+
+### 8.7 Open questions
+1. Geocoding now (which provider) or later?
+2. Live status re-check: `maxAgeHours: 1` (cheaper, may be an hour stale) or `0` (live, +~10 s per batch)?
+3. Who owns the booking side, so we can agree the handoff shape?
+4. Keep `venue_policies` keyed by domain as a fallback after venues exist? (Recommended: yes.)
+
+### 8.8 Build split (when approved; coded by subagents)
+- A: extraction v3 + normalise + venues table + store (one subagent, owns exa/normalize/store/schema).
+- B: status re-check + gates + handoff function + pick fields (second subagent, after A's types land).
+- C: cancellation method/transferable (small, can go with B).
+
+### 8.9 Decided 2026-10-04
+- Keep both join tables for now: `suggestions` (one row per user+event: the offer) and `bookings` (attempts: money, tickets).
+  Later: add `bookings.suggestion_id` and `feedback.event_id`, and update `suggestions.status` on approve/decline.
+- Geocoding: **OpenStreetMap Nominatim** now. Policy: ≤1 request/s, a real `User-Agent` with contact (env `NOMINATIM_USER_AGENT`,
+  e.g. "booking-agent/0.1 (ops@example.com)"), cache results forever per venue, attribution "© OpenStreetMap contributors" where shown.
+  Geocode each new venue once (`venues.lat/lng`, `geocoded_at`, `geocode_source`), and the user's `homeArea` once (`users.home_lat/lng`).
+  Requests are serialised with 1.1 s spacing; a run geocodes at most ~10 new venues, the rest wait for the next run.
+  Distance (haversine, code) feeds the rating prompt ("2.1 km from home") and an optional `users.max_travel_km` filter (default none).
+- Live status re-check: Exa `/contents` with **`maxAgeHours: 1`** for shortlisted events only.
+- Booking handoff: we define it (v1 below); the booking side can ask for changes later.
+
+### 8.10 Booking handoff API (v1)
+Code: `src/lib/events/handoff.ts`.
+```ts
+getBookingHandoff(userId: string, eventId: string, opts?: { refresh?: boolean }): Promise<BookingHandoff>
+// refresh (default true): re-check status/price/bookingUrl if statusCheckedAt is older than 1 h
+
+type BookingHandoff = {
+  version: 1;
+  eventId: string; suggestionId: string | null; userId: string;
+  title: string; category: EventCategory; tags: string[];
+  startsAt: string;            // ISO UTC
+  startLocal: string;          // "2026-10-08T19:30" in `timezone`
+  timezone: string; hasTime: boolean;
+  venue: { id: string | null; name: string | null; address: string | null; city: string | null;
+           lat: number | null; lng: number | null; distanceKm: number | null };
+  online: boolean;
+  bookingUrl: string | null;   // open this; null → start from detailUrl
+  detailUrl: string; sourcePageUrl: string;
+  priceEstimate: { text: string | null; minCents: number | null; currency: string | null }; // never charge on this
+  status: EventStatus; statusCheckedAt: string;
+  cancellation: { kind: PolicyKind; cancelBy: string | null; hoursBeforeStart: number | null; fee: string | null;
+                  method: CancelMethod; contact: string | null; transferable: boolean | null;
+                  quote: string | null; sourceUrl: string | null; summary: string };
+  ticketsWanted: number;       // taste.usualTicketCount ?? 1
+  decision: { action: 'book' | 'ask' | 'skip'; reason: string; confidence: number };
+  bookable: { ok: boolean; reason: string }; // false for sold_out/cancelled/postponed/past/online-without-link
+};
+```
+Exposed as: the function (same process), `find-events` picks carry `eventId` (+ `bookingUrl`, `status`), and a route
+`GET /api/events/:eventId/handoff?userId=…` (auth: `X-Dev-Token` / internal) in case booking runs as a separate service.
+Contract for the booking side: re-read price + cancellation on the checkout page; abort and ask if worse than the handoff.
+
+### 8.11 Still open
+- Calendar: switch `getBusy` to free/busy endpoints (Google `freeBusy`, Graph `getSchedule`): owned by the other session.
+
+### 8.12 Status 2026-10-04 ~14:15 PT: part A (extraction v3 + venues + geocoding) built
+- Extraction: `venueName`, `address`, `city`, `online`, `url`, `bookingUrl`, `status` (`STATUSES` in classify.ts), `onSaleAt`; page cache v3.
+  Yield on the same 39 SF pages: v3 83 events vs v2 73. 9 big calendar pages (Roxie/Balboa calendars, Veezi) currently return no summary with either schema.
+  `bookingUrl` is rarely extracted: falls back to the event link when it is a ticket/RSVP page (`looksBookable`); `example.com` placeholders dropped.
+- `venues` table (`venues.ts`): merged by `normVenueName` + city, and by the same street address in the city. Geocoded with Nominatim (`geocode.ts`, ≤10/run, 1.1 s spacing,
+  misses marked `nominatim:none`); `users.home_lat/lng` from taste `homeArea` + city. `distanceKm` goes into the rating prompt; `users.max_travel_km` filters.
+- `discover()` drops `DEAD_STATUSES` and too-far events before rating; `recentEvents` excludes dead statuses and takes an optional `home` for distances.
+- Next (part B): live status re-check, `handoff.ts`, cancellation method/transferable.
+
+### 8.13 Status 2026-10-04 ~13:40 PT: part B (re-check, gates, handoff, cancellation method) built
+- **Live re-check** `status.ts refreshStatus()`: shortlist only (≤10), Exa `/contents` on `bookingUrl ?? url`, `maxAgeHours: 1`, one call per
+  page in parallel (one batch with all ten events in the query made the summariser mix events up). The page returns the dates it lists;
+  `startConfirmed` is computed in code (page lists dates and none is the event's day → false). Status from aggregator pages only replaces
+  `unknown`. Writes `events.status/status_checked_at/booking_url/on_sale_at` and `details.priceText/priceMinCents/startConfirmed`.
+  Season/calendar/package pages and resellers are not booking links (dropped on re-check and at extraction; `gotickets` added to AGGREGATORS).
+- **Gates** (`discover.ts finalizePicks` → `statusGate`): dead status or date not confirmed → dropped; waitlist / not_yet_on_sale ("on sale from …") /
+  unknown → never `book`; free_entry → `ask` "free, no ticket needed"; door_only → `ask` "tickets at the door only"; online without link → never `book`.
+  Picks are folded when they share title+start, venue+start time, venue+day+core title, or (same day, venues ≤300 m apart, a shared name word).
+- **Cancellation**: `method` (`online_self_service|email|phone|box_office|not_possible|unknown`), `contact`, `transferable` on the policy, in
+  `venue_policies` and in the summary ("… · cancel by email info@x"). Booking unasked additionally needs method online_self_service or email.
+  Cached policies without `method` (from before) are looked up once more.
+- **Handoff** `handoff.ts getBookingHandoff()` = §8.10 v1. `bookable` is also false for `door_only` (nothing to buy online).
+  Route: **`GET /events/:eventId/handoff?userId=…|phone=…`** (`X-Dev-Token`), not `/api/…`: Mastra refuses custom routes under `/api`.
+- Picks carry `bookingUrl`, `status`, `onSaleAt`, `address`, `city`, `distanceKm`; WhatsApp shows "few left!" / "waitlist only" / "on sale …", km, booking link.
+- Chat cache (`recentEvents`): same city **or** venue within 40 km of home (no home: of the city's geocoded venues' centre); `max_travel_km` applied.
+- Page cache: pages with zero events expire after 3 h (`EMPTY_PAGE_CACHE_HOURS`).
+
+### 8.14 Known issues (accepted for the demo, 2026-10-04)
+- Store collision: two listings with the same source URL + start time can share one `events` row, so a pick's title can differ
+  from the handoff's title (seen once: "Kurt Elling & The Yellowjackets" vs "The Music of Weather Report"). Not fixed (user: skip).
+- `bookingUrl` is usually null; the booking agent starts from `detailUrl`.
+- Handoff route is `GET /events/:eventId/handoff` (not `/api/...` as in §8.10; Mastra reserves `/api`).
+- Neon DB not migrated; `neon.ts` daily trigger + env passthrough (`CRON_SECRET`, `DISCOVERY_MODEL`, `NOMINATIM_USER_AGENT`) not added.
+- Decided 2026-10-04: **no periodic pulls for the hackathon.** The Neon daily trigger is dropped; for the demo, run discovery
+  once per demo user (`POST /dev/discover {"phone":…,"notify":true}` with `X-Dev-Token`, or `scripts/discover.ts --user …`).
+  `/cron/discover` stays in the code for later.

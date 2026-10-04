@@ -16,6 +16,7 @@ export type DiscoveryContext = {
   interests?: string | null;       // free text from users.interests
   hint?: string;                   // the user's request in chat, e.g. "jazz on Friday"
   categories?: EventCategory[];    // only these (chat filter); empty/undefined = all
+  maxTravelKm?: number | null;     // users.max_travel_km: drop events farther than this from home (unknown distance = keep)
 };
 
 export type PlannedQuery = { query: string; why: string };
@@ -26,14 +27,15 @@ export type Candidate = {
   startsAt: Date;
   startLocal: string;              // "2026-10-17T19:00" in the user's timezone, as on the page
   hasTime: boolean;
-  venue: string | null;            // venue name
-  address: string | null;
-  city: string;                    // as extracted; falls back to the searched city
-  online: boolean;
+  venue: string | null;            // venue name only (no address)
+  address: string | null;          // street address if the page shows one
+  city: string;                    // city as extracted from the page; falls back to the searched city
+  online: boolean;                 // livestream/online event
   url: string;                     // detail page for this event (falls back to the page it was found on)
-  bookingUrl: string | null;       // direct ticket/registration link: what the booking agent opens
+  bookingUrl: string | null;       // direct Buy tickets / Register / RSVP link: what the booking agent opens
   status: EventStatus;             // availability as last seen
-  statusCheckedAt: string;         // ISO; when `status` was read (page cache age, or the live re-check)
+  statusCheckedAt: string;         // ISO; when `status` was read (extraction time, or a later live re-check)
+  onSaleAt: string | null;         // ISO; when sales open, for status not_yet_on_sale
   pageUrl: string;
   pageKind: 'single_event' | 'listing' | 'other';
   priceText: string | null;        // as written on the page: an estimate, never charged against
@@ -46,7 +48,13 @@ export type Candidate = {
   attrs: DerivedAttributes;        // timeOfDay, weekend, priceBand, ageLimit
 };
 
-export type StoredEvent = Candidate & { id: string };
+export type StoredEvent = Candidate & {
+  id: string;
+  venueId: string | null;          // venues.id (null for aggregator-only events or when the venue upsert failed)
+  venueLat: number | null;         // geocoded venue (Nominatim), null until geocoded
+  venueLng: number | null;
+  distanceKm: number | null;       // user home → venue, null when either side isn't geocoded
+};
 
 export type ScoredEvent = StoredEvent & {
   confidence: number;              // 0–1, the LLM's guess that the user will love it

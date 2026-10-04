@@ -4,7 +4,7 @@ import { scout } from '../../mastra/agents/scout';
 import { db } from '../db';
 import { AGGREGATORS } from './classify';
 import { formatLocal } from './time';
-import type { ScoredEvent } from './types';
+import type { StoredEvent } from './types';
 
 /**
  * Cancellation / refund policy per event. The agent may book before the user confirms ("surprise" bookings), so it
@@ -14,8 +14,14 @@ import type { ScoredEvent } from './types';
 
 export type PolicyKind = 'free_event' | 'free_cancellation' | 'refund_with_fee' | 'exchange_or_credit_only' | 'no_refunds' | 'unknown';
 
+export const CANCEL_METHODS = ['online_self_service', 'email', 'phone', 'box_office', 'not_possible', 'unknown'] as const;
+export type CancelMethod = (typeof CANCEL_METHODS)[number];
+
 export type CancellationPolicy = {
   kind: PolicyKind;
+  method: CancelMethod;              // how a booking is cancelled; only online_self_service / email can be done by the agent
+  contact: string | null;            // URL / email / phone to cancel through
+  transferable: boolean | null;      // tickets may be passed to someone else; null = not stated
   hoursBeforeStart: number | null;   // latest cancellation for a refund/credit; null = not stated
   fee: string | null;
   quote: string | null;              // verbatim policy text
@@ -93,6 +99,11 @@ const classifySchema = z.object({
       fee: z.string().nullable(),
       quote: z.string().nullable().describe('the single most relevant sentence, verbatim from the texts'),
       sourceUrl: z.string().nullable(),
+      method: z
+        .enum(CANCEL_METHODS)
+        .describe('how a buyer cancels: online_self_service (account/order page), email, phone, box_office (in person), not_possible, unknown'),
+      contact: z.string().nullable().describe('the URL, email address or phone number to cancel through, verbatim; null if not stated'),
+      transferable: z.boolean().nullable().describe('true if tickets may be transferred to another person, false if explicitly not; null if not stated'),
     }),
   ),
 });
@@ -109,37 +120,64 @@ async function classify(texts: { domain: string; snippets: { url: string; quote:
 Be conservative: if texts conflict, pick the stricter one. Ignore refunds for performances the venue cancels or
 reschedules, and one-off notices about particular screenings/shows (technical problems, a single sold-out night):
 only the general policy for normal tickets counts.
+Also give the cancellation method (how the buyer requests it), the contact (URL/email/phone) if stated, and whether
+tickets are transferable to another person (null if not stated).
 
 ${texts.map(t => `## ${t.domain}\n${t.snippets.map(s => `[${s.url}] ${s.quote.slice(0, 600)}`).join('\n')}`).join('\n\n')}`;
   const res = await scout.generate(prompt, {
     structuredOutput: { schema: classifySchema, errorStrategy: 'strict', jsonPromptInjection: true },
   });
-  return (res.object?.policies ?? []).map(p => ({ ...p, domain: p.domain.replace(/^www\./, '') }));
+  return (res.object?.policies ?? []).map(p => ({ ...p, method: p.method ?? 'unknown', domain: p.domain.replace(/^www\./, '') }));
 }
 
 async function cached(domains: string[]) {
   if (!domains.length) return new Map<string, CancellationPolicy>();
   const { rows } = await db.query(
-    `SELECT domain, kind, hours_before_start, fee, quote, source_url FROM venue_policies
-     WHERE domain = ANY($1) AND checked_at > now() - make_interval(days => $2)`,
+    `SELECT domain, kind, hours_before_start, fee, quote, source_url, method, contact, transferable FROM venue_policies
+     WHERE domain = ANY($1) AND checked_at > now() - make_interval(days => $2)
+       AND method IS NOT NULL`, // rows from before method/transferable existed are looked up once more (then upserted)
     [domains, CACHE_DAYS],
   );
   return new Map(
     rows.map(r => [
       r.domain,
-      { domain: r.domain, kind: r.kind, hoursBeforeStart: r.hours_before_start, fee: r.fee, quote: r.quote, sourceUrl: r.source_url },
+      {
+        domain: r.domain,
+        kind: r.kind,
+        hoursBeforeStart: r.hours_before_start,
+        fee: r.fee,
+        quote: r.quote,
+        sourceUrl: r.source_url,
+        method: normaliseMethod(r.method), // rows from before part B have none: unknown
+        contact: r.contact ?? null,
+        transferable: r.transferable ?? null,
+      } satisfies CancellationPolicy,
     ]),
   );
 }
 
 async function remember(p: CancellationPolicy) {
   await db.query(
-    `INSERT INTO venue_policies (domain, kind, hours_before_start, fee, quote, source_url, checked_at)
-     VALUES ($1, $2, $3, $4, $5, $6, now())
-     ON CONFLICT (domain) DO UPDATE SET kind = $2, hours_before_start = $3, fee = $4, quote = $5, source_url = $6, checked_at = now()`,
-    [p.domain, p.kind, p.hoursBeforeStart, p.fee, p.quote, p.sourceUrl],
+    `INSERT INTO venue_policies (domain, kind, hours_before_start, fee, quote, source_url, method, contact, transferable, checked_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+     ON CONFLICT (domain) DO UPDATE SET kind = $2, hours_before_start = $3, fee = $4, quote = $5, source_url = $6,
+       method = $7, contact = $8, transferable = $9, checked_at = now()`,
+    [p.domain, p.kind, p.hoursBeforeStart, p.fee, p.quote, p.sourceUrl, p.method, p.contact, p.transferable],
   );
 }
+
+export function normaliseMethod(raw: unknown): CancelMethod {
+  return typeof raw === 'string' && (CANCEL_METHODS as readonly string[]).includes(raw) ? (raw as CancelMethod) : 'unknown';
+}
+
+const METHOD_LABEL: Record<CancelMethod, string | null> = {
+  online_self_service: 'cancel online',
+  email: 'cancel by email',
+  phone: 'cancel by phone',
+  box_office: 'cancel at the box office',
+  not_possible: null,
+  unknown: null,
+};
 
 const LABEL: Record<PolicyKind, string> = {
   free_event: 'Free entry',
@@ -154,16 +192,29 @@ function describe(p: CancellationPolicy, startsAt: Date, tz: string): Cancellati
   const cancelBy = p.hoursBeforeStart !== null && p.hoursBeforeStart >= 0 ? new Date(startsAt.getTime() - p.hoursBeforeStart * 3_600_000) : null;
   const until = cancelBy && p.kind !== 'no_refunds' && p.kind !== 'unknown' ? ` until ${formatLocal(cancelBy, tz)}` : '';
   const fee = p.fee && p.kind !== 'free_cancellation' ? ` (${p.fee})` : '';
-  return { ...p, cancelBy: cancelBy?.toISOString() ?? null, summary: `${LABEL[p.kind]}${until}${fee}` };
+  const how = p.kind !== 'free_event' && p.kind !== 'no_refunds' && METHOD_LABEL[p.method] ? ` · ${METHOD_LABEL[p.method]}${p.contact ? ` ${p.contact}` : ''}` : '';
+  const transfer = p.transferable ? ' · transferable' : '';
+  return { ...p, cancelBy: cancelBy?.toISOString() ?? null, summary: `${LABEL[p.kind]}${until}${fee}${how}${transfer}` };
 }
+
+const EMPTY: Omit<CancellationPolicy, 'domain'> = {
+  kind: 'unknown',
+  hoursBeforeStart: null,
+  fee: null,
+  quote: null,
+  sourceUrl: null,
+  method: 'unknown',
+  contact: null,
+  transferable: null,
+};
 
 /**
  * Looks up the cancellation policy for each event (cached per domain) and attaches it as `cancellation`.
  * Never throws: on any failure the event gets kind "unknown", which blocks booking unasked.
  */
-export async function attachCancellation(events: ScoredEvent[], tz: string): Promise<(ScoredEvent & { cancellation: CancellationInfo })[]> {
-  const domainOf = (e: ScoredEvent) => host(AGGREGATORS.test(host(e.url)) ? e.pageUrl : e.url);
-  const isFree = (e: ScoredEvent) => e.priceMinCents === 0;
+export async function attachCancellation<T extends StoredEvent>(events: T[], tz: string): Promise<(T & { cancellation: CancellationInfo })[]> {
+  const domainOf = (e: StoredEvent) => host(AGGREGATORS.test(host(e.url)) ? e.pageUrl : e.url);
+  const isFree = (e: StoredEvent) => e.priceMinCents === 0;
   const needed = [...new Set(events.filter(e => !isFree(e)).map(domainOf).filter(d => d && !AGGREGATORS.test(d)))];
 
   const policies = await cached(needed).catch(() => new Map<string, CancellationPolicy>());
@@ -186,6 +237,9 @@ export async function attachCancellation(events: ScoredEvent[], tz: string): Pro
           fee: null,
           quote: null,
           sourceUrl: null,
+          method: 'unknown' as const,
+          contact: null,
+          transferable: null,
         };
         // Generous policies must come from a policy-type page, not an event page's one-off notice.
         if (p.kind === 'free_cancellation' && !POLICY_PAGE.test(p.sourceUrl ?? '') && !PER_EVENT.test(domain)) {
@@ -202,19 +256,24 @@ export async function attachCancellation(events: ScoredEvent[], tz: string): Pro
   return events.map(e => {
     const domain = domainOf(e);
     const p: CancellationPolicy = isFree(e)
-      ? { kind: 'free_event', hoursBeforeStart: null, fee: null, quote: null, sourceUrl: null, domain }
-      : policies.get(domain) ?? { kind: 'unknown', hoursBeforeStart: null, fee: null, quote: null, sourceUrl: null, domain };
+      ? { ...EMPTY, kind: 'free_event', domain }
+      : policies.get(domain) ?? { ...EMPTY, domain };
     return { ...e, cancellation: describe(p, e.startsAt, tz) };
   });
 }
 
 /**
  * The gate in code: booking without asking is only allowed if the user can still back out for free.
- * Free events always pass; free cancellation passes if its deadline leaves ≥12 h to decide (no stated deadline = until start).
+ * Free events always pass; free cancellation passes if the agent can cancel itself (online or by email) and its deadline leaves ≥12 h to decide (no stated deadline = until start).
  */
 export function allowsBookingUnasked(c: CancellationInfo, startsAt: Date, now = new Date()): { ok: boolean; reason: string } {
   if (c.kind === 'free_event') return { ok: true, reason: 'free entry' };
   if (c.kind !== 'free_cancellation') return { ok: false, reason: `${LABEL[c.kind].toLowerCase()}, so I ask first` };
+  // The agent must be able to cancel by itself (account page in the browser, or an email from its inbox).
+  if (c.method !== 'online_self_service' && c.method !== 'email') {
+    const how = METHOD_LABEL[c.method];
+    return { ok: false, reason: how ? `free cancellation but I'd have to ${how}, so I ask first` : 'no way for me to cancel it myself is known, so I ask first' };
+  }
   const deadline = c.cancelBy ? new Date(c.cancelBy) : new Date(startsAt.getTime() - DEFAULT_DEADLINE_HOURS * 3_600_000);
   const hoursLeft = (deadline.getTime() - now.getTime()) / 3_600_000;
   return hoursLeft >= MIN_HOURS_TO_DECIDE
