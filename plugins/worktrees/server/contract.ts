@@ -237,7 +237,7 @@ export const MockOrder = z.object({
   createdAt: z.string(),
 })
 
-const cents = (c: number | null) => (c === null ? '—' : `€${(c / 100).toFixed(2)}`)
+const cents = (c: number | null) => (c === null ? '—' : `${c < 0 ? '−' : ''}€${(Math.abs(c) / 100).toFixed(2)}`)
 
 export const mockOrders = tool({
   name: 'mock_orders',

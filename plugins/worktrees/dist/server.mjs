@@ -39229,7 +39229,7 @@ var MockOrder = external_exports.object({
   cardLast4: external_exports.string().nullable(),
   createdAt: external_exports.string()
 });
-var cents = (c) => c === null ? "\u2014" : `\u20AC${(c / 100).toFixed(2)}`;
+var cents = (c) => c === null ? "\u2014" : `${c < 0 ? "\u2212" : ""}\u20AC${(Math.abs(c) / 100).toFixed(2)}`;
 var mockOrders = tool({
   name: "mock_orders",
   title: "Mock shop orders",

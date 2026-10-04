@@ -23,4 +23,7 @@ Test a worktree like a WhatsApp user, without a phone. Use `+1555…` numbers (e
 - `chat_messages` lists what the app sent a phone (proactive picks, booking updates, late replies).
 - `chat_reset` deletes the phone's user, outbox and chat memory (`POST /dev/reset-user`) so the next message starts from scratch. It refuses numbers outside `+1555` unless `force`: worktree databases hold copies of real users.
 
+- `chat_bookings` shows a test user's bookings (status, approved and paid totals, order number, what it waits for, error) with their credit holds, credit ledger and current credits.
+- `mock_orders` lists orders placed in the worktree's mock ticket shop Ticketeria (`/mock/shop`, only with `MOCK_SHOP=1` in its `.env`): what the booking flow really bought. With `MOCK_SHOP=1`, Berlin users also get the shop's events in `find-events`; its login-required event takes any email with password `demo`. See `docs/booking/PLAN.md` for the booking e2e.
+
 The worktree must be running (`start_worktree`) and have the chat dev routes; they 404 under `NODE_ENV=production`.
