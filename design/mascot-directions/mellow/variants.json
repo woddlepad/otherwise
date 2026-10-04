@@ -1,0 +1,8 @@
+[
+{"id":"01-soft-3d","name":"Soft 3D","kind":"Full companion","note":"Smooth toy-like volumes, plain paws, and no fur marks. Keeps the clock and the original personality.","use":"Landing pages · onboarding · larger avatars"},
+{"id":"02-flat-body","name":"Simple shapes","kind":"Full companion","note":"A pared-back body built from large rounded shapes. Fewer details compete with the face and clock.","use":"Illustrations · chat companions · medium sizes"},
+{"id":"03-flat-face","name":"Face icon","kind":"Compact face","note":"The body and clock step aside so the broad capybara muzzle becomes the main recognition cue.","use":"Favicons · navigation · small avatars"},
+{"id":"04-3d-face","name":"Pocket 3D","kind":"Compact face","note":"A little sculpted head that keeps the warmth of the 3D character in a compact shape.","use":"App icons · product avatars · brand moments"},
+{"id":"05-bold-sticker","name":"Bold sticker","kind":"Graphic icon","note":"A strong outline gives the head a clear edge. Big shapes carry the personality at small sizes.","use":"Favicons · badges · stickers"},
+{"id":"06-one-color","name":"One-color mark","kind":"Minimal mark","note":"The most reduced direction: one dark silhouette and a few open facial features.","use":"Small marks · stamps · single-color applications"}
+]

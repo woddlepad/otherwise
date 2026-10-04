@@ -9,7 +9,11 @@ const DEFAULT_MODEL = 'neon/claude-opus-5-5';
  * So `neon/claude-*` goes through the gateway's native Anthropic Messages endpoint instead.
  */
 export function languageModel() {
-  const id = process.env.MODEL || DEFAULT_MODEL;
+  return modelFor(process.env.MODEL || DEFAULT_MODEL);
+}
+
+/** Same routing for an explicit model id (e.g. a faster model for one agent). */
+export function modelFor(id: string) {
   const claude = id.match(/^neon\/(claude-.+)$/);
   if (!claude) return id;
   return createAnthropic({

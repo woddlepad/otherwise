@@ -18,6 +18,8 @@ const passthrough = [
   'KERNEL_API_KEY',
   'AGENTMAIL_API_KEY',
   'DEV_CHAT_TOKEN',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
 ];
 
 export default defineConfig({

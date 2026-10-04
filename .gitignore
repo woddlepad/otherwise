@@ -18,5 +18,8 @@ refs/
 *.log
 .DS_Store
 
+# runtime scratch
+.atmos/
+
 # neon CLI link
 .neon

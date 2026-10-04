@@ -1,0 +1,28 @@
+{
+  "city": "San Francisco",
+  "timezone": "America/Los_Angeles",
+  "interests": "jazz, repertory cinema, stand-up comedy",
+  "taste": {
+    "profile": {
+      "summary": "You love small-club jazz and repertory film, especially 35mm and cult classics, and you go out on weeknights after work.",
+      "likes": [
+        { "category": "live jazz", "specifics": ["Kurt Elling", "SFJAZZ", "small clubs"], "evidence": "SFJAZZ ticket confirmations", "strength": 0.9 },
+        { "category": "repertory cinema", "specifics": ["35mm", "Japanese classics", "horror"], "evidence": "Roxie and Balboa receipts", "strength": 0.8 },
+        { "category": "stand-up comedy", "specifics": ["Cobb's Comedy Club"], "evidence": "one Cobb's ticket", "strength": 0.4 }
+      ],
+      "dislikes": ["stadium", "EDM"],
+      "favoriteVenues": ["SFJAZZ Center", "Roxie Theater", "Balboa Theater"],
+      "typicalTicketPrice": 35,
+      "currency": "USD",
+      "usualCompany": "partner",
+      "usualTicketCount": 2,
+      "preferredTimes": "weekday evenings after 19:00, weekend afternoons",
+      "homeArea": "Mission District",
+      "openQuestions": []
+    },
+    "summary": null,
+    "notes": ["prefers original-language screenings"],
+    "autoBookConfidence": 0.85,
+    "askConfidence": 0.5
+  }
+}

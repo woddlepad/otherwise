@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Otherwise: for the evenings you'd have stayed in</title>
+<link rel="icon" href="img/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<style>
+  /* Otherwise × Mellow. The calendar is the product; the capybara is the companion.
+     Palette: a cool spring (sage paper, pine ink, spring teal) so the warm capybara and its coral clock are what glows.
+     One dark band (last week's picks) where the event photos and liquid-glass cards carry the colour. */
+  :root {
+    --paper: #F3F5EF;       /* sage-tinted paper */
+    --surface: #FFFFFF;
+    --ink: #1C302C;         /* pine */
+    --muted: #5A6B66;
+    --line: #DCE2DA;
+    --spring: #22675A;      /* booked: the water the capybara sits in */
+    --spring-deep: #1A5248;
+    --spring-tint: #DDEEE8; /* waiting for your yes */
+    --coral: #C44F2F;       /* the clock on its belly: actions only */
+    --coral-deep: #A9401F;
+    --cream: #F6EBDD;       /* its belly */
+    --night: #10201C;       /* the dark band */
+    --mist: #E8EFEB;
+    --mist-dim: #A3B8B1;
+    --radius-s: 6px;
+    --radius-l: 20px;
+  }
+  * { box-sizing: border-box; }
+  html { overflow-x: clip; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Host Grotesk", system-ui, sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    font-feature-settings: "tnum" 1;
+  }
+  a { color: inherit; }
+  img { display: block; max-width: 100%; height: auto; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--coral); outline-offset: 3px; border-radius: 4px; }
+  .wrap { width: min(1280px, 100% - 3rem); margin-inline: auto; }
+
+  .site-top { display: flex; align-items: center; justify-content: space-between; padding-block: 1.25rem; }
+  .logo { display: inline-flex; align-items: center; gap: .55rem; font-weight: 650; font-size: 1.35rem; letter-spacing: -.02em; text-decoration: none; }
+  .logo img { width: 40px; height: 40px; margin: -4px 0; }
+  .site-top nav { display: flex; align-items: center; gap: 2rem; font-size: .975rem; }
+  .site-top nav a:not(.btn) { text-decoration: none; color: var(--muted); }
+  .site-top nav a:not(.btn):hover { color: var(--ink); }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .55rem;
+    background: var(--coral); color: #fff; text-decoration: none;
+    font-weight: 600; font-size: 1rem;
+    padding: .8rem 1.3rem; border-radius: 999px; border: 0; cursor: pointer;
+    transition: background .15s, transform .15s;
+  }
+  .btn:hover { background: var(--coral-deep); }
+  .btn:active { transform: translateY(1px); }
+  .btn.quiet { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px #C9D2C8; }
+  .btn.quiet:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .btn.small { padding: .55rem 1rem; font-size: .925rem; }
+
+  /* ---------- hero ---------- */
+  .hero { padding-top: 3.5rem; }
+  .hero-head { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 3rem; align-items: end; }
+  h1 { font-size: clamp(3.1rem, 7.4vw, 7rem); font-weight: 600; line-height: .95; letter-spacing: -.045em; margin: 0; max-width: 11ch; }
+  .hero-side p { margin: 0 0 1.75rem; font-size: 1.2rem; color: var(--muted); max-width: 40ch; }
+  .hero-side p strong { color: var(--ink); font-weight: 600; }
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+
+  /* the week, with the capybara sitting on it */
+  .week-wrap { position: relative; margin-top: 9.5rem; }
+  .mascot {
+    position: absolute; right: 3.5%; bottom: calc(100% - 46px); z-index: 2;
+    width: 200px; pointer-events: none;
+    filter: drop-shadow(0 18px 18px rgba(28, 48, 44, .16));
+    animation: settle .9s cubic-bezier(.3, 1.6, .5, 1) 1.9s both;
+  }
+  .mascot.hop { animation: settle .8s cubic-bezier(.3, 1.6, .5, 1) .15s both; }
+  @keyframes settle {
+    0%   { transform: translateY(0); }
+    35%  { transform: translateY(-18px) rotate(-3deg); }
+    70%  { transform: translateY(0) rotate(1deg); }
+    100% { transform: translateY(0); }
+  }
+  .say {
+    position: absolute; right: calc(3.5% + 190px); bottom: calc(100% + 14px); z-index: 2;
+    margin: 0; background: var(--surface); border-radius: 18px 18px 4px 18px;
+    padding: .7rem 1rem; font-size: .95rem; line-height: 1.35; max-width: 18rem;
+    box-shadow: 0 1px 0 var(--line), 0 14px 30px -18px rgba(28, 48, 44, .45);
+    animation: pop .35s ease-out 2.3s both;
+  }
+  .say.swap { animation: pop .3s ease-out both; }
+  .say b { font-weight: 600; }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(.96); } to { opacity: 1; transform: none; } }
+
+  .week-card { position: relative; background: var(--surface); border-radius: var(--radius-l); padding: 1.25rem 1.5rem 1.25rem; box-shadow: 0 1px 0 var(--line), 0 30px 60px -40px rgba(28, 48, 44, .4); }
+  .week-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem 2rem; flex-wrap: wrap; padding: 0 .25rem 1.25rem; }
+  .week-bar h2 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: -.01em; }
+  .plan { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-right: 200px; }
+  .plan-label { font-size: .9rem; color: var(--muted); }
+  .moods { display: inline-flex; padding: 4px; gap: 2px; border-radius: 999px; background: #EEF2EC; }
+  .moods button {
+    border: 0; background: transparent; cursor: pointer;
+    padding: .45rem .95rem; border-radius: 999px; font-size: .92rem; font-weight: 600; color: var(--muted);
+    transition: background .2s, color .2s, box-shadow .2s;
+  }
+  .moods button:hover { color: var(--ink); }
+  .moods button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(28, 48, 44, .12), 0 0 0 1px rgba(28, 48, 44, .06); }
+
+  .scroller { overflow-x: auto; }
+  .week { display: grid; grid-template-columns: 3.25rem repeat(7, minmax(0, 1fr)); min-width: 860px; }
+  .day-h { padding: .5rem .6rem .9rem; border-left: 1px solid var(--line); }
+  .day-h .dow { display: block; font-size: .85rem; color: var(--muted); }
+  .day-h .dom { display: block; font-size: 1.6rem; font-weight: 600; letter-spacing: -.03em; line-height: 1.1; }
+  .gutter { position: relative; }
+  .gutter span { position: absolute; right: .6rem; font-size: .78rem; color: var(--muted); transform: translateY(-50%); }
+  .col { position: relative; height: 470px; border-left: 1px solid var(--line); background-image: linear-gradient(var(--line) 1px, transparent 1px); background-size: 100% calc(100% / 7); }
+  .col .note { position: absolute; left: 10px; right: 10px; top: 46%; font-size: .82rem; color: var(--muted); text-align: center; line-height: 1.35; animation: label .4s ease both; }
+  .ev {
+    position: absolute; left: 6px; right: 6px;
+    top: calc(var(--s) / 7 * 100%); height: calc(var(--d) / 7 * 100% - 4px);
+    border-radius: var(--radius-s);
+    padding: .5rem .6rem;
+    font-size: .86rem; line-height: 1.3;
+    overflow: hidden;
+  }
+  .ev b { display: block; font-weight: 600; font-size: .92rem; }
+  .ev .m { display: block; }
+  .mine { background: repeating-linear-gradient(135deg, #E2E8E0 0 2px, #F1F4EF 2px 7px); color: var(--muted); }
+  .booked { background: var(--spring); color: #fff; }
+  .asked { background: var(--spring-tint); box-shadow: inset 0 0 0 2px var(--spring); color: var(--ink); }
+  .ev.booked, .ev.asked { transform-origin: top; animation: fill .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 220ms + var(--base, 500ms)); }
+  .ev.booked > *, .ev.asked > * { animation: label .4s ease both; animation-delay: calc(var(--i) * 220ms + var(--base, 500ms) + 300ms); }
+  .leaving { animation: leave .26s ease-in both !important; }
+  @keyframes fill { from { opacity: 0; transform: scaleY(.2); } 60% { opacity: 1; } to { opacity: 1; transform: scaleY(1); } }
+  @keyframes label { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes leave { to { opacity: 0; transform: scale(.92); } }
+  .tag { margin-top: .4rem; display: inline-flex; align-items: center; gap: .3rem; font-size: .78rem; font-weight: 600; border-radius: 999px; padding: .12rem .5rem .12rem .3rem; }
+  .booked .tag { background: rgba(255, 255, 255, .16); }
+  .booked .tag::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--cream) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6.2l2 2 4-4.4' fill='none' stroke='%2322675A' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat; }
+  .answer { display: flex; gap: .35rem; margin-top: .5rem; flex-wrap: wrap; }
+  .answer button { border: 0; cursor: pointer; border-radius: 999px; padding: .28rem .7rem; font-size: .8rem; font-weight: 600; }
+  .answer .yes { background: var(--spring); color: #fff; }
+  .answer .yes:hover { background: var(--spring-deep); }
+  .answer .no { background: transparent; color: var(--spring-deep); box-shadow: inset 0 0 0 1.5px rgba(34, 103, 90, .45); }
+
+  /* agenda: the same week as a list, for phones */
+  .agenda { display: none; list-style: none; margin: 0; padding: 0; }
+  .agenda > li { display: grid; grid-template-columns: 3.1rem minmax(0, 1fr); gap: .75rem; padding-block: .75rem; border-top: 1px solid var(--line); }
+  .agenda > li:first-child { border-top: 0; }
+  .agenda .dname { line-height: 1.1; padding-top: .35rem; }
+  .agenda .dname span { display: block; font-size: .8rem; color: var(--muted); }
+  .agenda .dname b { font-size: 1.35rem; font-weight: 600; letter-spacing: -.03em; }
+  .agenda .items { display: grid; gap: .45rem; }
+  .ag { border-radius: 10px; padding: .55rem .75rem; font-size: .9rem; line-height: 1.3; }
+  .ag .time { font-size: .78rem; opacity: .8; display: block; }
+  .ag b { font-weight: 600; }
+  .ag.booked, .ag.asked { animation: pop .45s ease both; animation-delay: calc(var(--i) * 120ms + var(--base, 400ms)); }
+  .agenda .free { color: var(--muted); font-size: .88rem; padding: .45rem 0; }
+
+  .week-foot { display: flex; justify-content: space-between; align-items: center; gap: .75rem 1.5rem; flex-wrap: wrap; padding: 1.1rem .25rem 0; font-size: .9rem; color: var(--muted); border-top: 1px solid var(--line); margin-top: .25rem; }
+  .legend { display: flex; gap: .5rem 1.25rem; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; }
+  .legend li { display: inline-flex; align-items: center; gap: .45rem; }
+  .sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .sw.asked { box-shadow: inset 0 0 0 2px var(--spring); }
+  .spend b { color: var(--ink); font-weight: 600; }
+
+  section { padding-block: 7rem; }
+  h2.big { font-size: clamp(2.3rem, 4.6vw, 4rem); font-weight: 600; line-height: 1; letter-spacing: -.04em; margin: 0; max-width: 16ch; }
+  .sub { color: var(--muted); font-size: 1.15rem; max-width: 46ch; margin: 1.25rem 0 0; }
+
+  /* ---------- last week's picks: a dark band, liquid-glass cards in a swipeable stack ---------- */
+  .picks-band { position: relative; background: var(--night); color: var(--mist); overflow: hidden; isolation: isolate; }
+  .picks-band .sub { color: var(--mist-dim); }
+  .picks-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; }
+  .picks-copy { position: relative; z-index: 2; }  /* thrown cards fly under the copy */
+  .chat { display: flex; align-items: flex-end; gap: .75rem; max-width: 26rem; margin-top: 2.25rem; }
+  .chat img { width: 56px; height: 56px; flex: none; }
+  .chat p {
+    margin: 0; padding: .85rem 1.1rem; font-size: 1rem; line-height: 1.4; border-radius: 18px 18px 18px 4px;
+    background: rgba(255, 255, 255, .08); color: var(--mist);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), inset 0 0 0 1px rgba(255, 255, 255, .08);
+    -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  }
+  .chat p.swap { animation: pop .3s ease-out both; }
+  .picks-note { margin: 2rem 0 0; font-size: .85rem; color: #7F958E; }
+
+  /* ambient light: the top card's photo, blurred huge behind the stack */
+  .glow { position: absolute; z-index: -1; inset: -10% -25% -10% -25%; pointer-events: none; }
+  .glow img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(70px) saturate(1.5); opacity: 0; transform: scale(.9); transition: opacity .9s ease, transform 1.2s ease; border-radius: 50%; }
+  .glow img.on { opacity: .55; transform: scale(1); }
+
+  .deck { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2.25rem; }
+  .stack { position: relative; z-index: 1; width: min(390px, 100%); height: 540px; margin-bottom: 40px; outline: none; }
+  .stack:focus-visible { outline: 2px solid rgba(255, 255, 255, .7); outline-offset: 12px; border-radius: 32px; }
+  .card {
+    position: absolute; inset: 0; overflow: hidden;
+    border-radius: 30px; background: #0B1714; color: #fff;
+    box-shadow: 0 40px 70px -30px rgba(0, 0, 0, .75), inset 0 0 0 1px rgba(255, 255, 255, .14);
+    transform: translate(var(--x, 0), var(--y, 0)) scale(var(--sc, 1)) rotate(var(--r, 0deg));
+    transform-origin: 50% 85%;
+    transition: transform .5s cubic-bezier(.2, .9, .25, 1.1), opacity .35s ease, filter .5s ease;
+    transition-delay: var(--delay, 0s);
+    filter: brightness(var(--dim, 1));
+    user-select: none; -webkit-user-select: none; touch-action: pan-y;
+  }
+  .card.is-top { cursor: grab; }
+  .card.dragging { cursor: grabbing; transition: none; }
+  .card.flying { transition: transform .42s cubic-bezier(.4, 0, .9, .6), opacity .26s ease .06s; }
+  .card > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+  .card::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(0, 0, 0, .28), transparent 22%, transparent 48%, rgba(0, 0, 0, .35)); }
+
+  /* liquid glass: tinted, blurred, with a lit rim and a soft inner sheen. Chromium also gets real edge refraction (see script). */
+  .glass {
+    position: relative; z-index: 1;
+    background: linear-gradient(155deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .07) 38%, rgba(255, 255, 255, .03) 70%, rgba(255, 255, 255, .1)), rgba(14, 26, 23, .26);
+    -webkit-backdrop-filter: blur(14px) saturate(1.7) brightness(1.05);
+    backdrop-filter: blur(14px) saturate(1.7) brightness(1.05);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .55),
+      inset 0 -1px 0 rgba(255, 255, 255, .14),
+      inset 0 0 0 1px rgba(255, 255, 255, .12),
+      inset 0 -18px 30px -24px rgba(255, 255, 255, .35),
+      0 14px 30px -12px rgba(0, 0, 0, .45);
+  }
+  .glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.2px; pointer-events: none;
+    background: linear-gradient(140deg, rgba(255, 255, 255, .8), rgba(255, 255, 255, .05) 32%, rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, .45));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+  }
+  .card .chips { position: absolute; z-index: 1; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: .5rem; }
+  .pill { border-radius: 999px; padding: .32rem .75rem; font-size: .84rem; font-weight: 600; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+  .pill.hot { background-color: rgba(196, 79, 47, .55); }
+  .card .panel { position: absolute; left: 10px; right: 10px; bottom: 10px; border-radius: 22px; padding: 1.05rem 1.2rem 1.1rem; }
+  .card h3 { margin: 0; font-size: 1.65rem; font-weight: 600; letter-spacing: -.03em; line-height: 1.05; text-shadow: 0 1px 12px rgba(0, 0, 0, .25); }
+  .card .where { display: block; font-size: .95rem; color: rgba(255, 255, 255, .82); margin-top: .25rem; }
+  .card .why { margin: .75rem 0 0; padding-top: .7rem; font-size: .93rem; line-height: 1.4; color: rgba(255, 255, 255, .92); border-top: 1px solid rgba(255, 255, 255, .18); }
+  .card .why b { font-weight: 600; color: #fff; }
+  .stamp { position: absolute; z-index: 2; top: 4.4rem; font-weight: 700; font-size: 1.05rem; padding: .45rem .95rem; border-radius: 999px; pointer-events: none; opacity: 0; }
+  .stamp.yes { left: 14px; background-color: rgba(34, 103, 90, .6); transform: rotate(-6deg); opacity: var(--yes, 0); }
+  .stamp.no { right: 14px; background-color: rgba(20, 20, 20, .45); transform: rotate(6deg); opacity: var(--no, 0); }
+
+  .deck-controls { display: flex; align-items: center; gap: 1.25rem; }
+  .round { width: 60px; height: 60px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; color: #fff; transition: transform .15s; }
+  .round:hover { transform: scale(1.06); }
+  .round:active { transform: scale(.94); }
+  .round.yes { background-color: rgba(34, 103, 90, .75); }
+  .round svg { width: 22px; height: 22px; }
+  .count { min-width: 5.5rem; text-align: center; font-size: .95rem; color: var(--mist-dim); }
+  .count b { color: #fff; font-weight: 600; }
+  .hint { margin: -1.25rem 0 0; font-size: .85rem; color: #7F958E; }
+
+  /* ---------- the decision explorer ---------- */
+  .decide { background: var(--surface); }
+  .decide-grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr); gap: 4rem; align-items: start; }
+  .controls { margin-top: 2.5rem; display: grid; gap: 2rem; }
+  .control label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; margin-bottom: .6rem; }
+  .control output { font-size: 1.6rem; letter-spacing: -.03em; font-weight: 600; }
+  .control small { display: block; color: var(--muted); font-size: .9rem; margin-top: .5rem; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 99px; background: linear-gradient(var(--spring), var(--spring)) 0 / var(--p, 50%) 100% no-repeat, var(--line); cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 2px var(--spring), 0 2px 6px rgba(28, 48, 44, .2); }
+  input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border: 0; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 2px var(--spring), 0 2px 6px rgba(28, 48, 44, .2); }
+  .ideas { background: var(--paper); border-radius: var(--radius-l); padding: .5rem 1.75rem; }
+  .ideas ul { list-style: none; margin: 0; padding: 0; }
+  .ideas li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem 1.5rem; padding-block: 1.15rem; border-bottom: 1px solid var(--line); }
+  .ideas li:last-child { border-bottom: 0; }
+  .ideas .t { font-weight: 600; font-size: 1.08rem; letter-spacing: -.01em; }
+  .ideas .meta { color: var(--muted); font-size: .92rem; grid-column: 1; }
+  .ideas .why { font-size: .92rem; grid-column: 1 / -1; }
+  .verdict { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: .9rem; font-weight: 600; padding: .35rem .8rem; border-radius: 999px; white-space: nowrap; }
+  .verdict.book { background: var(--spring); color: #fff; }
+  .verdict.ask { background: var(--spring-tint); color: var(--spring-deep); box-shadow: inset 0 0 0 1.5px var(--spring); }
+  .verdict.skip { background: #E6EBE4; color: var(--muted); }
+  .ideas li.is-skip .t { color: var(--muted); }
+  .ideas-note { font-size: .85rem; color: var(--muted); margin: .9rem .25rem 0; }
+
+  /* ---------- steps: a true sequence ---------- */
+  .steps { list-style: none; padding: 0; margin: 4rem 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3rem; counter-reset: s; }
+  .steps li { position: relative; padding-top: 2.75rem; }
+  .steps li::before { counter-increment: s; content: counter(s); position: absolute; top: 0; left: 0; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--paper); font-weight: 600; font-size: .95rem; }
+  .steps li:not(:last-child)::after { content: ""; position: absolute; top: 1rem; left: 2.75rem; right: -2.25rem; height: 1px; background: #C9D2C8; }
+  .steps h3 { margin: 0 0 .6rem; font-size: 1.45rem; font-weight: 600; letter-spacing: -.025em; }
+  .steps p { margin: 0; color: var(--muted); max-width: 36ch; }
+
+  /* ---------- trust ---------- */
+  .trust { padding-top: 0; }
+  .trust-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 4rem; }
+  .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.5rem 3rem; margin: 0; }
+  .facts div { border-top: 2px solid var(--ink); padding-top: 1rem; }
+  .facts dt { font-weight: 600; font-size: 1.15rem; letter-spacing: -.015em; margin-bottom: .4rem; }
+  .facts dd { margin: 0; color: var(--muted); }
+
+  /* ---------- close ---------- */
+  .close { padding-block: 2rem 6rem; }
+  .close-card { position: relative; background: var(--ink); color: var(--paper); border-radius: var(--radius-l); padding: clamp(2.5rem, 6vw, 5rem); padding-right: clamp(2.5rem, 24vw, 22rem); overflow: hidden; isolation: isolate; }
+  .close-card::before { content: ""; position: absolute; z-index: -1; right: -4rem; bottom: -9rem; width: 30rem; height: 18rem; border-radius: 50%; background: radial-gradient(closest-side, rgba(34, 103, 90, .9), rgba(34, 103, 90, 0)); }
+  .close h2 { font-size: clamp(2.4rem, 5.4vw, 4.8rem); font-weight: 600; line-height: .98; letter-spacing: -.045em; margin: 0; max-width: 13ch; }
+  .close p { color: #B9C7C2; margin: 1.5rem 0 2rem; max-width: 38ch; font-size: 1.1rem; }
+  .close-card .capy { position: absolute; z-index: -1; right: clamp(1rem, 5vw, 4.5rem); bottom: -1.5rem; width: clamp(160px, 22vw, 300px); filter: drop-shadow(0 24px 24px rgba(0, 0, 0, .3)); }
+  footer { padding-block: 0 3rem; color: var(--muted); font-size: .9rem; }
+  footer .wrap { display: flex; justify-content: space-between; gap: .5rem 1rem; flex-wrap: wrap; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1100px) {
+    .plan { margin-right: 0; }
+    .week-bar { padding-right: 200px; }
+  }
+  @media (max-width: 960px) {
+    .hero-head, .decide-grid, .trust-grid, .picks-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+    .steps { grid-template-columns: 1fr; gap: 2.25rem; }
+    .steps li:not(:last-child)::after { display: none; }
+  }
+  @media (max-width: 760px) {
+    .scroller { display: none; }
+    .agenda { display: block; }
+    .week-bar { padding-right: .25rem; }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 1rem; }
+    .wrap { width: min(1280px, 100% - 2rem); }
+    .site-top { padding-block: 1rem; }
+    .site-top nav a:not(.btn) { display: none; }
+    .hero { padding-top: 1.75rem; }
+    h1 { font-size: clamp(2.6rem, 12.5vw, 3.4rem); }
+    .hero-head { gap: 1.25rem; }
+    .hero-side p { font-size: 1.05rem; margin-bottom: 1.4rem; }
+    .actions .btn { flex: 1 1 100%; }
+    .week-wrap { margin-top: 9.5rem; }
+    .mascot { width: 118px; bottom: calc(100% - 22px); right: .5rem; }
+    .say { left: 0; right: 120px; max-width: none; bottom: calc(100% + 12px); font-size: .9rem; }
+    .week-card { padding: 1rem 1rem .9rem; border-radius: 18px; }
+    .week-bar { flex-direction: column; align-items: stretch; gap: .75rem; padding: 0 0 .9rem; }
+    .plan { flex-direction: column; align-items: stretch; gap: .5rem; }
+    .moods { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .moods button { padding: .55rem .4rem; }
+    .week-foot { flex-direction: column; align-items: flex-start; }
+    section { padding-block: 4.5rem; }
+    h2.big { font-size: clamp(2.1rem, 10vw, 2.6rem); }
+    .sub { font-size: 1.02rem; }
+    .chat { margin-top: 1.5rem; }
+    .picks-note { display: none; }
+    .stack { height: 500px; width: calc(100% - 40px); }
+    .deck { gap: 1.75rem; }
+    .ideas { padding: .25rem 1.1rem; }
+    .ideas li { grid-template-columns: minmax(0, 1fr); }
+    .verdict { grid-row: auto; grid-column: 1; justify-self: start; }
+    .controls { margin-top: 1.75rem; }
+    .steps { margin-top: 2.5rem; }
+    .facts { grid-template-columns: 1fr; gap: 1.75rem; }
+    .trust-grid { gap: 2rem; }
+    .close { padding-bottom: 4rem; }
+    .close-card { padding: 2.25rem 1.5rem 12.5rem; }
+    .close-card .capy { width: 160px; right: 50%; transform: translateX(50%); bottom: -1rem; }
+    .close .btn { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ev.booked, .ev.asked, .ev > *, .ag, .mascot, .say, .chat p, .col .note { animation: none !important; }
+    .card, .card.flying { transition: opacity .2s ease; }
+    .glow img { transition: opacity .3s; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="glass-defs"></defs></svg>
+
+<header class="wrap site-top">
+  <a class="logo" href="#" aria-label="Otherwise home"><img src="img/capy-head.webp" alt="" width="40" height="40">otherwise</a>
+  <nav aria-label="Main">
+    <a href="#picks">What it finds</a>
+    <a href="#decide">How it decides</a>
+    <a href="#trust">Privacy and money</a>
+    <a class="btn small" href="#start">Start on WhatsApp</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="hero-head">
+      <h1>Otherwise, you'd have stayed in.</h1>
+      <div class="hero-side">
+        <p><strong>Otherwise finds the free evenings in your week and fills them with things you'd pick yourself.</strong> It learns your taste from your inbox, books concerts, screenings and talks within your budget, and texts you on WhatsApp.</p>
+        <div class="actions">
+          <a class="btn" href="#start">Start on WhatsApp</a>
+          <a class="btn quiet" href="#picks">See what it found last week</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="week-wrap">
+      <img class="mascot" id="mascot" src="img/capy-soft.webp" alt="The Otherwise capybara, holding a little clock" width="200" height="200">
+      <p class="say" id="say" aria-live="polite"></p>
+      <div class="week-card">
+        <div class="week-bar">
+          <h2>Your week, 12 to 18 October</h2>
+          <div class="plan">
+            <span class="plan-label" id="plan-label">Plan it around</span>
+            <div class="moods" role="radiogroup" aria-labelledby="plan-label" id="moods">
+              <button type="button" role="radio" aria-checked="true" data-mood="music">Live music</button>
+              <button type="button" role="radio" aria-checked="false" data-mood="laughs">Laughs</button>
+              <button type="button" role="radio" aria-checked="false" data-mood="surprise">Surprise me</button>
+            </div>
+          </div>
+        </div>
+        <div class="scroller" tabindex="0" aria-label="Week calendar">
+          <div class="week" id="week"></div>
+        </div>
+        <ol class="agenda" id="agenda" aria-label="Week, day by day"></ol>
+        <div class="week-foot">
+          <ul class="legend">
+            <li><span class="sw mine"></span>Already in your calendar</li>
+            <li><span class="sw booked"></span>Booked for you</li>
+            <li><span class="sw asked"></span>Waiting for your yes</li>
+          </ul>
+          <span class="spend" id="spend"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="picks-band" id="picks" aria-labelledby="picks-h">
+    <div class="wrap picks-grid">
+      <div class="picks-copy">
+        <h2 class="big" id="picks-h">Last week, you could have gone to all of this.</h2>
+        <p class="sub">Real Berlin listings from 28 September to 4 October, picked for someone who likes indie bands, English stand-up and anything within walking distance. Swipe through them. Every swipe teaches it a little more about you.</p>
+        <div class="chat">
+          <img src="img/capy-head.webp" alt="" width="56" height="56">
+          <p id="capy-says" aria-live="polite">Two of these are still on. The pumpkin festival is free and ends tonight.</p>
+        </div>
+        <p class="picks-note">Photos are illustrative, from Unsplash.</p>
+      </div>
+
+      <div class="deck">
+        <div class="glow" id="glow" aria-hidden="true"></div>
+        <div class="stack" id="stack" tabindex="0" role="group" aria-roledescription="card stack" aria-label="Last week's picks. Use the left and right arrow keys to go through them.">
+          <article class="card" data-yes="Noted. I'll watch for more indie bands like Death Cab." data-no="Got it. Fewer big indie shows.">
+            <img src="img/green-crowd.jpg" alt="A crowd under green stage lights" draggable="false">
+            <div class="chips"><span class="pill glass">Thu 1 Oct, 20:00</span></div>
+            <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
+            <div class="panel glass"><h3>Death Cab for Cutie</h3><span class="where">Columbiahalle, Tempelhof</span>
+              <p class="why"><b>Best match.</b> You've bought tickets to see them twice, and Thursday was empty.</p></div>
+          </article>
+          <article class="card" data-yes="More English stand-up, coming up." data-no="Okay, I'll ease off the comedy.">
+            <img src="img/comedy.jpg" alt="A microphone in front of a red curtain" draggable="false">
+            <div class="chips"><span class="pill glass">Fri 2 Oct</span></div>
+            <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
+            <div class="panel glass"><h3>English Comedy Showcase, with pizza</h3><span class="where">Comedy Club Kookaburra, from €27.95</span>
+              <p class="why">You go to English stand-up about once a month.</p></div>
+          </article>
+          <article class="card" data-yes="Lovely. More quiet, electronic gigs like Laura Misch." data-no="Noted. Fewer ambient sets.">
+            <img src="img/crowd.jpg" alt="A large crowd facing a lit stage" draggable="false" style="object-position: center 85%">
+            <div class="chips"><span class="pill glass">Fri 2 Oct</span></div>
+            <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
+            <div class="panel glass"><h3>Laura Misch</h3><span class="where">Heimathafen Neukölln</span>
+              <p class="why">She's in the playlist you open most on Sunday mornings.</p></div>
+          </article>
+          <article class="card" data-yes="Late nights it is. I'll keep an eye on the clubs." data-no="Got it, no club nights.">
+            <img src="img/club.jpg" alt="A DJ playing in a dark club under red light" draggable="false">
+            <div class="chips"><span class="pill glass">3 to 11 Oct</span><span class="pill glass hot">Still on</span></div>
+            <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
+            <div class="panel glass"><h3>Club Culture Day week</h3><span class="where">Clubs across Berlin</span>
+              <p class="why">You opened every newsletter from your favourite club this year.</p></div>
+          </article>
+          <article class="card" data-yes="Free and close by. I'll find more of those." data-no="Okay, fewer street festivals.">
+            <img src="img/pumpkins.jpg" alt="Crates of pumpkins and gourds at a market" draggable="false">
+            <div class="chips"><span class="pill glass">Sat 3 and Sun 4 Oct</span><span class="pill glass hot">Ends tonight</span></div>
+            <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
+            <div class="panel glass"><h3>Schöneberger Kürbisfest</h3><span class="where">Akazienkiez, free</span>
+              <p class="why">Ten minutes' walk from you, and it costs nothing.</p></div>
+          </article>
+        </div>
+        <div class="deck-controls">
+          <button class="round no glass" type="button" id="btn-no" aria-label="Not for me">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+          <span class="count" id="count"><b>1</b> of 5</span>
+          <button class="round yes glass" type="button" id="btn-yes" aria-label="More like this">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 20.5l-1.3-1.2C5.9 15 3 12.4 3 9.2 3 6.6 5 4.6 7.6 4.6c1.6 0 3.2.8 4.4 2 1.2-1.2 2.8-2 4.4-2C19 4.6 21 6.6 21 9.2c0 3.2-2.9 5.8-7.7 10.1z"/></svg>
+          </button>
+        </div>
+        <p class="hint">Swipe or drag a card. Arrow keys work too.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="decide" id="decide" aria-labelledby="decide-h">
+    <div class="wrap decide-grid">
+      <div>
+        <h2 class="big" id="decide-h">You set two numbers. It follows them.</h2>
+        <p class="sub">Every idea gets a price and a score for how sure it is you'll go. A fixed rule, not the AI, decides what happens next. Try it.</p>
+        <div class="controls">
+          <div class="control">
+            <label for="monthly">Monthly budget <output id="monthly-out" for="monthly">€120</output></label>
+            <input id="monthly" type="range" min="20" max="300" step="10" value="120">
+          </div>
+          <div class="control">
+            <label for="surprise">Book without asking up to <output id="surprise-out" for="surprise">€25</output></label>
+            <input id="surprise" type="range" min="0" max="100" step="5" value="25">
+            <small>Anything above this, it texts you first.</small>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="ideas" aria-live="polite"><ul id="ideas"></ul></div>
+        <p class="ideas-note">Real listings for 12 to 18 October. Prices are examples.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="steps-h">
+    <div class="wrap">
+      <h2 class="big" id="steps-h">Set up once, in about three minutes.</h2>
+      <ol class="steps">
+        <li><h3>Connect mail and calendar</h3><p>Gmail or Outlook, read-only. Your ticket receipts and the newsletters you open say what you like. Your calendar says when you're free.</p></li>
+        <li><h3>Set your two numbers</h3><p>A monthly budget, and how much it may spend without asking. You can change both by text at any time.</p></li>
+        <li><h3>Get your first plan</h3><p>Within a day it texts you something worth leaving the house for. Reply yes, no, or "more like this".</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="trust" id="trust" aria-labelledby="trust-h">
+    <div class="wrap trust-grid">
+      <h2 class="big" id="trust-h">Careful with your inbox and your card.</h2>
+      <dl class="facts">
+        <div><dt>Reads, never sends</dt><dd>Mail access is read-only. It looks for tickets, bookings and newsletters, and never writes from your account.</dd></div>
+        <div><dt>Checks before it pays</dt><dd>If the checkout total is higher than the price it showed you, it stops and asks.</dd></div>
+        <div><dt>Never sees your card</dt><dd>Card details are filled in at the last step by the browser. The AI only knows the last four digits.</dd></div>
+        <div><dt>Puts it in your calendar</dt><dd>Everything it books lands in your calendar with the venue, doors time and tickets attached.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <div class="wrap close" id="start">
+    <div class="close-card">
+      <h2>Next Thursday is still empty. It doesn't have to be.</h2>
+      <p>Send one WhatsApp message. You'll get a setup link back, and your first suggestion within a day.</p>
+      <a class="btn" href="#">Start on WhatsApp</a>
+      <img class="capy" src="img/capy-soft.webp" alt="" width="300" height="300" loading="lazy">
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap"><span>Otherwise, Berlin</span><span>Stop any time by texting “stop”.</span></div>
+</footer>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ================= the week (hero) =================
+     Hours are offsets from 17:00 (s = start, d = duration). Everything below is a real Berlin listing for 12 to 18 October 2026. */
+  const DAYS = [['Mon', 12, 'Monday'], ['Tue', 13, 'Tuesday'], ['Wed', 14, 'Wednesday'], ['Thu', 15, 'Thursday'], ['Fri', 16, 'Friday'], ['Sat', 17, 'Saturday'], ['Sun', 18, 'Sunday']];
+  const BUDGET = 120;
+  const MINE = [
+    { day: 0, s: 1.5, d: 1.5, t: 'Climbing', m: 'Berta Block' },
+    { day: 1, s: 2, d: 3.5, t: "Dinner at Lea's", m: 'Kreuzberg' },
+    { day: 3, s: 0, d: 1.25, t: 'Call with Sam' },
+    { day: 6, s: 0, d: 2, t: "Mum's birthday", m: 'video call' },
+  ];
+  const MOODS = {
+    music: {
+      say: 'Found you <b>three good evenings</b> this week. Wednesday I left free on purpose.',
+      quiet: { 2: 'Nothing worth leaving the sofa for.' },
+      picks: [
+        { day: 3, k: 'booked', s: 3, d: 2.5, t: 'Cat Power', m: "Huxley's Neue Welt", price: 39, tag: 'You said yes' },
+        { day: 4, k: 'booked', s: 2.5, d: 1.75, t: 'Festival of Lights walk', m: 'Mitte, free', price: 0, tag: 'Added for you' },
+        { day: 5, k: 'asked', s: 3, d: 2.5, t: 'Giant Rooks', m: 'Max-Schmeling-Halle, €38', price: 38 },
+        { day: 6, k: 'booked', s: 3, d: 2.5, t: 'Band of Horses', m: 'ASTRA Kulturhaus', price: 36, tag: 'You said yes' },
+      ],
+    },
+    laughs: {
+      say: 'Three nights of <b>English stand-up</b>. Two are free, and one is on a boat.',
+      quiet: { 5: 'Saturday is kept free for a lie-in.' },
+      picks: [
+        { day: 0, k: 'asked', s: 3.25, d: 1.75, t: 'MASS Debate', m: 'Süss war gestern, free', price: 0 },
+        { day: 3, k: 'booked', s: 3.5, d: 2.5, t: 'Laughing Spree', m: 'Comedy on a boat, Friedrichshain', price: 17, tag: 'A surprise, €17' },
+        { day: 4, k: 'booked', s: 2.5, d: 1.5, t: 'Pimp My Jokes', m: 'Mein Freund Harvey, free', price: 0, tag: 'Added for you' },
+      ],
+    },
+    surprise: {
+      say: 'Something different: <b>Mongolian folk metal</b>, a cult rock band and a city lit up.',
+      quiet: { 2: 'Wednesday is for doing nothing.' },
+      picks: [
+        { day: 3, k: 'booked', s: 3.5, d: 2.5, t: 'Tito & Tarantula', m: 'SO36, Kreuzberg', price: 32, tag: 'You said yes' },
+        { day: 4, k: 'booked', s: 2.5, d: 1.75, t: 'Festival of Lights walk', m: 'Mitte, free', price: 0, tag: 'Added for you' },
+        { day: 6, k: 'asked', s: 3, d: 2.5, t: 'The Hu', m: 'Columbiahalle, €45', price: 45 },
+      ],
+    },
+  };
+  let mood = 'music';
+  let picks = MOODS.music.picks.map(p => ({ ...p }));
+  const clock = s => { const m = Math.round((17 + s) * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+
+  function blockHTML(p, i, base) {
+    const tail = p.k === 'asked'
+      ? `<div class="answer"><button class="yes" type="button" data-act="yes" data-i="${i}">Book it</button><button class="no" type="button" data-act="no" data-i="${i}">Skip</button></div>`
+      : p.tag ? `<span class="tag">${esc(p.tag)}</span>` : '';
+    return { tail, style: `--i:${p.order ?? 0};--base:${base}ms` };
+  }
+  function renderWeek(base = 500) {
+    const quiet = MOODS[mood].quiet || {};
+    picks.forEach((p, i) => { if (p.order === undefined) p.order = i; });
+    // grid
+    let g = '<div></div>' + DAYS.map(([d, n]) => `<div class="day-h"><span class="dow">${d}</span><span class="dom">${n}</span></div>`).join('');
+    g += '<div class="gutter">' + [18, 19, 20, 21, 22, 23].map((h, i) => `<span style="top:${(i + 1) / 7 * 100}%">${h}:00</span>`).join('') + '</div>';
+    DAYS.forEach((_, di) => {
+      const mine = MINE.filter(e => e.day === di).map(e => `<div class="ev mine" style="--s:${e.s};--d:${e.d}"><b>${esc(e.t)}</b>${e.m ? `<span class="m">${esc(e.m)}</span>` : ''}</div>`).join('');
+      const mineP = picks.map((p, i) => [p, i]).filter(([p]) => p.day === di).map(([p, i]) => {
+        const { tail, style } = blockHTML(p, i, base);
+        return `<div class="ev ${p.k}" data-pick="${i}" style="--s:${p.s};--d:${p.d};${style}"><b>${esc(p.t)}</b><span class="m">${esc(p.m)}</span>${tail}</div>`;
+      }).join('');
+      const note = !mineP && quiet[di] ? `<span class="note">${esc(quiet[di])}</span>` : '';
+      g += `<div class="col">${mine}${mineP}${note}</div>`;
+    });
+    $('week').innerHTML = g;
+    // agenda (phones)
+    $('agenda').innerHTML = DAYS.map(([d, n, full], di) => {
+      const items = [
+        ...MINE.filter(e => e.day === di).map(e => ({ ...e, k: 'mine' })),
+        ...picks.map((p, i) => ({ ...p, i })).filter(p => p.day === di),
+      ].sort((a, b) => a.s - b.s);
+      const body = items.length
+        ? items.map(it => {
+            if (it.k === 'mine') return `<div class="ag mine"><span class="time">${clock(it.s)}</span><b>${esc(it.t)}</b>${it.m ? `, ${esc(it.m)}` : ''}</div>`;
+            const { tail, style } = blockHTML(it, it.i, base);
+            return `<div class="ag ${it.k}" data-pick="${it.i}" style="${style}"><span class="time">${clock(it.s)}</span><b>${esc(it.t)}</b>, ${esc(it.m)}${tail ? `<div>${tail}</div>` : ''}</div>`;
+          }).join('')
+        : `<div class="free">${esc(quiet[di] || 'Free evening')}</div>`;
+      return `<li><div class="dname"><span>${d}</span><b>${n}</b></div><div class="items">${body}</div></li>`;
+    }).join('');
+    // money
+    const booked = picks.filter(p => p.k === 'booked').reduce((a, p) => a + p.price, 0);
+    $('spend').innerHTML = `<b>€${booked}</b> booked this week, €${BUDGET - booked} left for October`;
+  }
+
+  const say = $('say'), mascot = $('mascot');
+  function speak(html) {
+    say.innerHTML = html;
+    say.classList.remove('swap'); void say.offsetWidth; say.classList.add('swap');
+  }
+  function hop() { mascot.classList.remove('hop'); void mascot.offsetWidth; mascot.classList.add('hop'); }
+
+  function setMood(next) {
+    if (next === mood) return;
+    mood = next;
+    document.querySelectorAll('#moods button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mood === next)));
+    const old = document.querySelectorAll('.ev.booked, .ev.asked, .ag.booked, .ag.asked, .col .note');
+    old.forEach(el => el.classList.add('leaving'));
+    setTimeout(() => {
+      picks = MOODS[next].picks.map(p => ({ ...p }));
+      renderWeek(60);
+      speak(MOODS[next].say);
+      hop();
+    }, reduce || !old.length ? 0 : 260);
+  }
+  $('moods').addEventListener('click', e => { const b = e.target.closest('button[data-mood]'); if (b) setMood(b.dataset.mood); });
+  $('moods').addEventListener('keydown', e => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const btns = [...document.querySelectorAll('#moods button')];
+    const i = btns.findIndex(b => b.dataset.mood === mood);
+    const n = btns[(i + (e.key === 'ArrowRight' ? 1 : btns.length - 1)) % btns.length];
+    n.focus(); setMood(n.dataset.mood); e.preventDefault();
+  });
+
+  // answering the event that's waiting for a yes
+  document.querySelector('.week-card').addEventListener('click', e => {
+    const b = e.target.closest('button[data-act]');
+    if (!b) return;
+    const p = picks[+b.dataset.i];
+    const day = DAYS[p.day][2];
+    if (b.dataset.act === 'yes') {
+      p.k = 'booked'; p.tag = 'You said yes'; p.order = 0;
+      speak(`Booked. <b>${esc(p.t)}</b> is in your calendar for ${day}.`);
+    } else {
+      picks.splice(+b.dataset.i, 1);
+      MOODS[mood].quiet = { ...(MOODS[mood].quiet || {}), [p.day]: `${day} stays free.` };
+      speak(`Okay, ${day} stays free. I won't ask about ${esc(p.t)} again.`);
+    }
+    // re-render without replaying the whole week: only the answered block animates
+    const keep = picks.map(x => x.order);
+    picks.forEach(x => { x.order = x === p ? 0 : -50; });
+    renderWeek(0);
+    picks.forEach((x, i) => { x.order = keep[i]; });
+    hop();
+  });
+
+  speak(MOODS.music.say);
+  say.classList.remove('swap');  // the first message waits for the intro animation
+  renderWeek();
+
+  /* ================= how it decides (mirrors src/lib/policy.ts: auto-book at 0.85, ask from 0.6) ================= */
+  (() => {
+    const AUTO = 0.85, ASK = 0.6;
+    const ideas = [
+      { t: 'Festival of Lights walk', meta: 'Mitte, Fri 19:30', price: 0, sure: .88, busy: null },
+      { t: 'Laughing Spree', meta: 'Comedy on a boat, Thu 20:30', price: 17, sure: .9, busy: null },
+      { t: 'Cat Power', meta: "Huxley's Neue Welt, Thu 20:00", price: 39, sure: .93, busy: null },
+      { t: 'Giant Rooks', meta: 'Max-Schmeling-Halle, Sat 20:00', price: 38, sure: .74, busy: null },
+      { t: 'Honne', meta: 'Holzmarkt Säälchen, Tue 20:00', price: 35, sure: .89, busy: "Dinner at Lea's" },
+      { t: 'Haftbefehl', meta: 'Max-Schmeling-Halle, Sun 20:30', price: 69, sure: .22, busy: null },
+    ];
+    const monthly = $('monthly'), surprise = $('surprise');
+    function decide(x, left, auto) {
+      if (x.busy) return ['skip', `You're busy: ${x.busy}.`];
+      if (x.price > left) return ['skip', `Only €${left} left this month.`];
+      if (x.sure < ASK) return ['skip', 'Not much like what you usually go to.'];
+      if (x.sure >= AUTO && x.price <= auto) return ['book', x.price ? `A strong match, and under your €${auto} limit.` : 'A strong match, and free.'];
+      return ['ask', x.price > auto ? `Over your €${auto} limit, so it asks first.` : 'A good match, but not sure enough to book unasked.'];
+    }
+    const label = { book: 'Books it', ask: 'Asks you', skip: 'Skips it' };
+    function render() {
+      if (+surprise.value > +monthly.value) surprise.value = monthly.value;
+      const m = +monthly.value, a = +surprise.value;
+      $('monthly-out').value = `€${m}`; $('surprise-out').value = `€${a}`;
+      for (const r of [monthly, surprise]) r.style.setProperty('--p', `${(r.value - r.min) / (r.max - r.min) * 100}%`);
+      $('ideas').innerHTML = ideas.map(x => {
+        const [v, why] = decide(x, m, a);
+        return `<li class="is-${v}"><span class="t">${esc(x.t)}</span><span class="meta">${esc(x.meta)}, ${x.price ? '€' + x.price : 'free'}</span><span class="verdict ${v}">${label[v]}</span><span class="why">${esc(why)}</span></li>`;
+      }).join('');
+    }
+    monthly.addEventListener('input', render); surprise.addEventListener('input', render); render();
+  })();
+
+  /* ================= last week's picks: the swipeable stack ================= */
+  (() => {
+    const stack = $('stack'), says = $('capy-says'), count = $('count'), glow = $('glow');
+    let order = [...stack.querySelectorAll('.card')];
+    const total = order.length, VISIBLE = 3;
+    let seen = 0, busy = false;
+    // [x, y, scale, tilt, brightness] per depth
+    const POSES = [[0, 0, 1, 0, 1], [16, 20, .95, 4, .82], [-12, 38, .9, -3.5, .66], [0, 52, .86, 0, .5]];
+
+    // ambient glow: one blurred copy of each photo; the top card's is lit
+    order.forEach(c => { const im = c.querySelector('img').cloneNode(); im.alt = ''; im.removeAttribute('style'); c._glow = im; glow.appendChild(im); });
+
+    function place(card, depth, stagger) {
+      const [x, y, sc, r, dim] = POSES[Math.min(depth, POSES.length - 1)];
+      card.style.setProperty('--x', x + 'px');
+      card.style.setProperty('--y', y + 'px');
+      card.style.setProperty('--sc', sc);
+      card.style.setProperty('--r', r + 'deg');
+      card.style.setProperty('--dim', dim);
+      card.style.setProperty('--delay', stagger ? depth * 45 + 'ms' : '0ms');
+      card.style.zIndex = String(total - depth);
+      card.style.opacity = depth < VISIBLE ? '1' : '0';
+      card.classList.toggle('is-top', depth === 0);
+      card.inert = depth !== 0;
+      card._glow.classList.toggle('on', depth === 0);
+    }
+    const layout = (stagger, skip) => order.forEach((c, d) => c !== skip && place(c, d, stagger));
+    const counter = () => { count.innerHTML = `<b>${seen % total + 1}</b> of ${total}`; };
+
+    function throwTop(dir, fromY = 0) {
+      if (busy) return;
+      busy = true;
+      const card = order[0];
+      says.textContent = dir > 0 ? card.dataset.yes : card.dataset.no;
+      says.classList.remove('swap'); void says.offsetWidth; says.classList.add('swap');
+      card.classList.remove('dragging');
+      card.classList.add('flying');
+      card._glow.classList.remove('on');
+      card.style.transform = reduce ? '' : `translate(${dir * stack.offsetWidth * 1.6}px, ${fromY + 40}px) rotate(${dir * 24}deg)`;
+      card.style.opacity = '0';
+      order = [...order.slice(1), card];   // the next card rises while the thrown one is still in the air
+      seen++;
+      layout(true, card);
+      counter();
+      setTimeout(() => {
+        card.classList.remove('flying');
+        card.style.transition = 'none';
+        card.style.transform = '';
+        place(card, order.length - 1, false);
+        requestAnimationFrame(() => requestAnimationFrame(() => { card.style.transition = ''; busy = false; }));
+      }, reduce ? 200 : 420);
+    }
+
+    let drag = null;
+    stack.addEventListener('pointerdown', e => {
+      const card = e.target.closest('.card.is-top');
+      if (!card || busy || e.button > 0) return;
+      drag = { card, id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), dx: 0, dy: 0, moved: false };
+      card.setPointerCapture(e.pointerId);
+    });
+    stack.addEventListener('pointermove', e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag.dx = e.clientX - drag.x; drag.dy = e.clientY - drag.y;
+      if (!drag.moved && Math.abs(drag.dx) < 4) return;
+      if (!drag.moved) { drag.moved = true; drag.card.classList.add('dragging'); }
+      const { card, dx, dy } = drag;
+      card.style.transform = `translate(${dx}px, ${dy * .35}px) rotate(${dx * .06}deg)`;
+      const k = Math.max(-1, Math.min(1, dx / 110));
+      card.style.setProperty('--yes', Math.max(0, k));
+      card.style.setProperty('--no', Math.max(0, -k));
+    });
+    const release = e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const { card, dx, dy, t, moved } = drag;
+      drag = null;
+      card.style.setProperty('--yes', 0);
+      card.style.setProperty('--no', 0);
+      if (!moved) return;
+      const speed = Math.abs(dx) / Math.max(1, performance.now() - t);
+      if (Math.abs(dx) > stack.offsetWidth * .3 || (speed > .55 && Math.abs(dx) > 30)) throwTop(Math.sign(dx), dy * .35);
+      else { card.classList.remove('dragging'); card.style.transform = ''; }  // springs back via the CSS transition
+    };
+    stack.addEventListener('pointerup', release);
+    stack.addEventListener('pointercancel', release);
+    $('btn-yes').addEventListener('click', () => throwTop(1));
+    $('btn-no').addEventListener('click', () => throwTop(-1));
+    stack.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); throwTop(1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); throwTop(-1); }
+    });
+    layout(false);
+    counter();
+  })();
+
+  /* ================= liquid glass refraction (Chromium only) =================
+     Each glass panel gets an SVG displacement map that bends whatever is behind it near the edges, like a lens rim.
+     Other browsers keep the plain frosted glass from the CSS. */
+  (() => {
+    const chromium = !!navigator.userAgentData?.brands?.some(b => /Chromium/.test(b.brand));
+    if (!chromium || !CSS.supports('backdrop-filter', 'url(#x) blur(2px)')) return;
+    const defs = $('glass-defs');
+    const panels = [...document.querySelectorAll('.card .panel')];
+    function map(w, h, r, edge) {
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d'), img = g.createImageData(w, h), px = img.data;
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        let nx = 0, ny = 0, dist;
+        const cx = Math.min(Math.max(x, r), w - r), cy = Math.min(Math.max(y, r), h - r);
+        if ((x < r || x > w - r) && (y < r || y > h - r)) {
+          const vx = x - cx, vy = y - cy, len = Math.hypot(vx, vy) || 1;
+          dist = r - len; nx = vx / len; ny = vy / len;
+        } else {
+          const ds = [[x, -1, 0], [w - x, 1, 0], [y, 0, -1], [h - y, 0, 1]].sort((a, b) => a[0] - b[0])[0];
+          [dist, nx, ny] = ds;
+        }
+        const t = Math.max(0, 1 - Math.max(0, dist) / edge), mag = t * t;
+        const o = (y * w + x) * 4;
+        px[o] = 128 - nx * mag * 127; px[o + 1] = 128 - ny * mag * 127; px[o + 2] = 128; px[o + 3] = 255;
+      }
+      g.putImageData(img, 0, 0);
+      return c.toDataURL();
+    }
+    function build() {
+      defs.innerHTML = '';
+      panels.forEach((p, i) => {
+        const w = p.offsetWidth, h = p.offsetHeight;
+        if (!w || !h) return;
+        defs.insertAdjacentHTML('beforeend',
+          `<filter id="lg${i}" x="0" y="0" width="${w}" height="${h}" filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+             <feImage href="${map(w, h, 22, 26)}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none" result="m"/>
+             <feDisplacementMap in="SourceGraphic" in2="m" scale="34" xChannelSelector="R" yChannelSelector="G"/>
+           </filter>`);
+        p.style.backdropFilter = `url(#lg${i}) blur(9px) saturate(1.7) brightness(1.05)`;
+      });
+    }
+    build();
+    let t; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(build, 200); });
+  })();
+</script>
+</body>
+</html>
