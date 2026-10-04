@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unmissed: go to the thing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap" rel="stylesheet">
+<style>
+  /* Concept A: riso-printed ephemera. Two inks (blue + fluorescent pink) that overprint to purple, plus yellow used rarely. */
+  :root {
+    --paper: #FDFDFB;
+    --ink: #24418F;      /* riso-style blue, all text */
+    --pink: #FF48B0;     /* fluorescent pink, fills + misregistration */
+    --yellow: #FFE800;
+    --pink-tint: #FFD6EC;
+    --rule: rgba(36, 65, 143, .22);
+    --measure: 62ch;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; overflow-x: clip; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Archivo", system-ui, sans-serif;
+    font-variation-settings: "wdth" 100;
+    font-size: 1.125rem;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+  /* paper grain */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    opacity: .35;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .14 0 0 0 0 .25 0 0 0 0 .56 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    z-index: 50;
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--pink); outline-offset: 3px; }
+
+  .wrap { width: min(1240px, 100% - 2.5rem); margin-inline: auto; }
+
+  /* condensed display voice: the width axis is the personality */
+  .display {
+    font-variation-settings: "wdth" 62;
+    font-weight: 850;
+    line-height: .86;
+    letter-spacing: -.01em;
+    margin: 0;
+  }
+  /* misregistered overprint: a pink plate sitting a few px off the blue one */
+  .overprint { text-shadow: .045em .035em 0 var(--pink); }
+
+  /* header */
+  .top { display: flex; align-items: center; justify-content: space-between; padding-block: 1.4rem; gap: 1rem; }
+  .logo { font-variation-settings: "wdth" 62; font-weight: 900; font-size: 2rem; text-decoration: none; line-height: 1; text-shadow: 2px 2px 0 var(--pink); }
+  .top nav { display: flex; gap: 1.75rem; align-items: center; font-variation-settings: "wdth" 112; font-size: .95rem; font-weight: 500; }
+  .top nav a:not(.btn) { text-decoration: none; }
+  .top nav a:not(.btn):hover { text-decoration: underline; text-decoration-color: var(--pink); text-decoration-thickness: 3px; text-underline-offset: 4px; }
+
+  .btn {
+    display: inline-block;
+    background: var(--ink);
+    color: var(--paper);
+    text-decoration: none;
+    font-variation-settings: "wdth" 112;
+    font-weight: 700;
+    padding: .85em 1.3em;
+    box-shadow: 5px 5px 0 var(--pink);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .btn:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 var(--pink); }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--pink); }
+  .btn.small { padding: .55em 1em; box-shadow: 3px 3px 0 var(--pink); }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 2rem; align-items: center; padding-block: 3rem 6rem; }
+  .hero h1 { font-size: clamp(5rem, 13vw, 11.5rem); }
+  .hero .lede { max-width: 34ch; font-size: 1.3rem; line-height: 1.45; margin: 2rem 0 2.25rem; }
+  .hero .fine { font-size: .95rem; margin-top: 1.4rem; opacity: .8; }
+
+  /* ticket stubs */
+  .pile { position: relative; height: 680px; }
+  .stub {
+    --tear: 72%;
+    position: absolute;
+    left: var(--x); top: var(--y);
+    width: 360px; height: 156px;
+    display: grid; grid-template-columns: var(--tear) 1fr;
+    background: var(--bg, var(--pink));
+    color: var(--fg, var(--ink));
+    transform: rotate(var(--r));
+    -webkit-mask:
+      radial-gradient(circle at var(--tear) 0, #0000 11px, #000 11.5px) top / 100% 51% no-repeat,
+      radial-gradient(circle at var(--tear) 100%, #0000 11px, #000 11.5px) bottom / 100% 51% no-repeat;
+            mask:
+      radial-gradient(circle at var(--tear) 0, #0000 11px, #000 11.5px) top / 100% 51% no-repeat,
+      radial-gradient(circle at var(--tear) 100%, #0000 11px, #000 11.5px) bottom / 100% 51% no-repeat;
+    animation: drop .7s cubic-bezier(.2, .9, .25, 1.15) both;
+    animation-delay: calc(var(--i) * 140ms + 250ms);
+  }
+  @keyframes drop {
+    from { opacity: 0; transform: translateY(-90px) rotate(calc(var(--r) + 14deg)) scale(1.06); }
+    to   { opacity: 1; transform: rotate(var(--r)); }
+  }
+  .stub .main { padding: 1.05rem 1.2rem; display: flex; flex-direction: column; justify-content: space-between; border-right: 2px dashed currentColor; min-width: 0; }
+  .stub .kind { font-variation-settings: "wdth" 125; font-size: .72rem; font-weight: 600; letter-spacing: .04em; margin: 0; }
+  .stub h3 { font-variation-settings: "wdth" 62; font-weight: 850; font-size: 2.35rem; line-height: .9; margin: .2rem 0 0; }
+  .stub .where { font-variation-settings: "wdth" 100; font-size: .85rem; margin: 0; }
+  .stub .tear { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+  .stub .tear .d { font-variation-settings: "wdth" 62; font-weight: 900; font-size: 3.4rem; }
+  .stub .tear .m { font-variation-settings: "wdth" 125; font-size: .75rem; font-weight: 600; margin-top: .25rem; }
+  .stub.halftone { background: radial-gradient(#FF9AD2 1.3px, #0000 1.5px) 0 0 / 6px 6px, var(--pink-tint); }
+  .stub.yellow { --bg: var(--yellow); }
+  .stub.blue { --bg: var(--ink); --fg: var(--paper); }
+  .stub.paper { --bg: var(--paper); box-shadow: inset 0 0 0 2px var(--ink); }
+  .stub.paper .main { border-right-color: var(--ink); }
+  .stub .admit { position: absolute; right: 30%; bottom: .9rem; font-size: .7rem; font-variation-settings: "wdth" 125; font-weight: 600; opacity: .85; }
+
+  /* section rhythm */
+  section { padding-block: 6rem; }
+  .section-head { font-size: clamp(3.2rem, 7.5vw, 6.5rem); max-width: 14ch; }
+  .section-lede { max-width: 46ch; font-size: 1.2rem; margin: 1.5rem 0 0; }
+
+  /* the missed list */
+  .missed { border-top: 3px solid var(--ink); }
+  .missed ol { list-style: none; margin: 3rem 0 0; padding: 0; }
+  .missed li {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr) minmax(0, 18rem);
+    gap: 1.5rem;
+    align-items: baseline;
+    padding-block: 1.3rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .missed time { font-variation-settings: "wdth" 125; font-size: .9rem; font-weight: 600; }
+  .missed .what { font-variation-settings: "wdth" 62; font-weight: 800; font-size: clamp(1.8rem, 3.6vw, 2.9rem); line-height: 1; position: relative; justify-self: start; }
+  /* hand-pulled marker strike in pink */
+  .missed .what::after {
+    content: "";
+    position: absolute; left: -.15em; right: -.2em; top: 52%;
+    height: .2em;
+    background: var(--pink);
+    mix-blend-mode: multiply;
+    border-radius: 2px;
+    transform: rotate(-1.2deg) scaleX(var(--s, 0));
+    transform-origin: left;
+    transition: transform .55s cubic-bezier(.6, 0, .2, 1);
+  }
+  .missed.seen .what::after { --s: 1; }
+  .missed li:nth-child(2) .what::after { transition-delay: .12s; transform: rotate(.8deg) scaleX(var(--s, 0)); }
+  .missed li:nth-child(3) .what::after { transition-delay: .24s; }
+  .missed li:nth-child(4) .what::after { transition-delay: .36s; transform: rotate(1.4deg) scaleX(var(--s, 0)); }
+  .missed .note { font-size: 1rem; }
+  .stamp-row { display: flex; justify-content: flex-end; margin-top: 2.5rem; }
+  .stamp {
+    font-variation-settings: "wdth" 80;
+    font-weight: 800;
+    font-size: clamp(1.4rem, 2.6vw, 2rem);
+    line-height: 1.1;
+    color: var(--pink);
+    border: 4px solid var(--pink);
+    padding: .5em .8em;
+    transform: rotate(-4deg);
+    max-width: 17ch;
+    text-align: center;
+    mix-blend-mode: multiply;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.2 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.2 1.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* how it works: a real sequence, so numerals earn their place */
+  .how { background: var(--pink-tint); }
+  .steps { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; margin-top: 3.5rem; align-items: start; }
+  .steps ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2.75rem; }
+  .steps li { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 1.25rem; }
+  .steps .n { font-variation-settings: "wdth" 62; font-weight: 900; font-size: 6.5rem; line-height: .78; color: var(--pink); text-shadow: 3px 3px 0 var(--ink); mix-blend-mode: multiply; }
+  .steps h3 { font-variation-settings: "wdth" 62; font-weight: 800; font-size: 2.3rem; line-height: 1; margin: 0 0 .5rem; }
+  .steps p { margin: 0; max-width: 44ch; }
+
+  /* the conversation, printed */
+  .chat { background: var(--paper); border: 2px solid var(--ink); padding: 1.75rem; box-shadow: 10px 10px 0 var(--ink); position: sticky; top: 2rem; }
+  .chat .who { font-variation-settings: "wdth" 112; font-size: .82rem; font-weight: 600; margin: 0 0 .35rem; }
+  .msg { max-width: 88%; padding: .85rem 1rem; margin: 0 0 1.35rem; font-size: 1.02rem; line-height: 1.42; }
+  .msg.them { background: var(--pink-tint); }
+  .msg.me { background: var(--yellow); margin-left: auto; width: fit-content; }
+  .me-wrap { text-align: right; }
+  .chat .msg:last-child { margin-bottom: 0; }
+
+  /* money */
+  .money { border-top: 3px solid var(--ink); }
+  .money-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 4rem; align-items: start; }
+  .money dl { margin: 0; display: grid; gap: 0; }
+  .money dt { font-variation-settings: "wdth" 62; font-weight: 800; font-size: 2rem; line-height: 1.05; padding-top: 1.5rem; border-top: 1px solid var(--rule); }
+  .money dt:first-child { border-top: 0; padding-top: 0; }
+  .money dd { margin: .5rem 0 1.5rem; max-width: 48ch; }
+
+  /* close */
+  .close { background: var(--ink); color: var(--paper); padding-block: 7rem; position: relative; overflow: hidden; }
+  .close h2 { font-size: clamp(4.2rem, 13vw, 12rem); text-shadow: .045em .035em 0 var(--pink); max-width: 11ch; }
+  .close .btn { background: var(--yellow); color: var(--ink); margin-top: 2.75rem; font-size: 1.15rem; }
+  .close p { max-width: 40ch; margin-top: 1.75rem; font-size: 1.2rem; }
+  footer { background: var(--ink); color: var(--paper); padding-block: 2rem 2.5rem; font-size: .9rem; border-top: 1px solid rgba(253,253,251,.2); }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+  @media (max-width: 980px) {
+    .hero { grid-template-columns: 1fr; padding-bottom: 3rem; }
+    .pile { height: 520px; margin-top: 1rem; }
+    .steps, .money-grid { grid-template-columns: 1fr; gap: 3rem; }
+    .chat { position: static; }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 1.05rem; }
+    .top nav a:not(.btn) { display: none; }
+    .pile { height: 560px; }
+    .stub { width: min(300px, 84vw); height: 132px; left: calc(var(--x) * .45); }
+    .stub h3 { font-size: 1.85rem; }
+    .stub .tear .d { font-size: 2.6rem; }
+    .stub .main { padding: .85rem 1rem; }
+    .missed li { grid-template-columns: 1fr; gap: .35rem; }
+    .steps li { grid-template-columns: 3.5rem minmax(0, 1fr); }
+    .steps .n { font-size: 4.5rem; }
+    section { padding-block: 4.5rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stub { animation: none; }
+    .missed .what::after { transition: none; }
+    .btn { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wrap top">
+  <a class="logo" href="#">Unmissed</a>
+  <nav aria-label="Main">
+    <a href="#how">How it works</a>
+    <a href="#money">Your money</a>
+    <a class="btn small" href="#start">Start on WhatsApp</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1 class="display overprint">Go to the&nbsp;thing.</h1>
+      <p class="lede">Unmissed learns what you love from your inbox, spots the evenings your calendar leaves open, and gets you tickets to the gigs, screenings and late talks you'd otherwise hear about the day after.</p>
+      <a class="btn" href="#start">Text Unmissed on WhatsApp</a>
+      <p class="fine">You set the budget. It never spends a cent past it.</p>
+    </div>
+
+    <div class="pile" aria-label="Tickets Unmissed has booked for October">
+      <article class="stub yellow" style="--x:0%; --y:0%; --r:-6deg; --i:0">
+        <div class="main"><p class="kind">Concert</p><h3>Hania Rani</h3><p class="where">Silent Green, Wedding</p></div>
+        <div class="tear"><span class="d">17</span><span class="m">Sat Oct</span></div>
+      </article>
+      <article class="stub paper" style="--x:36%; --y:17%; --r:5deg; --i:1">
+        <div class="main"><p class="kind">Film, 35mm</p><h3>In the Mood for Love</h3><p class="where">Babylon, Mitte</p></div>
+        <div class="tear"><span class="d">08</span><span class="m">Thu Oct</span></div>
+      </article>
+      <article class="stub halftone" style="--x:3%; --y:36.5%; --r:-2deg; --i:2">
+        <div class="main"><p class="kind">Late night</p><h3>Museum after dark</h3><p class="where">Neues Museum</p></div>
+        <div class="tear"><span class="d">23</span><span class="m">Fri Oct</span></div>
+      </article>
+      <article class="stub blue" style="--x:38%; --y:57.5%; --r:7deg; --i:3">
+        <div class="main"><p class="kind">Live jazz</p><h3>Jazz jam</h3><p class="where">Donau115, Neukölln</p></div>
+        <div class="tear"><span class="d">28</span><span class="m">Wed Oct</span></div>
+      </article>
+      <article class="stub" style="--x:8%; --y:77%; --r:-4deg; --i:4">
+        <div class="main"><p class="kind">Stand-up</p><h3>Mia Kiel, new hour</h3><p class="where">Kookaburra, Prenzlauer Berg</p></div>
+        <div class="tear"><span class="d">30</span><span class="m">Fri Oct</span></div>
+      </article>
+    </div>
+  </div>
+
+  <section class="missed" id="missed" aria-labelledby="missed-h">
+    <div class="wrap">
+      <h2 class="display section-head" id="missed-h">Last month, all of this happened without you.</h2>
+      <ol>
+        <li><time datetime="2026-09-04">Fri 4 Sept</time><span class="what">Secret Khruangbin show at Lido</span><span class="note">Saw it on a friend's story the next morning.</span></li>
+        <li><time datetime="2026-09-10">Thu 10 Sept</time><span class="what">Wong Kar-wai double bill on 35mm</span><span class="note">Sold out by Wednesday. You were free.</span></li>
+        <li><time datetime="2026-09-18">Fri 18 Sept</time><span class="what">Museum island open until 2am</span><span class="note">It was in a newsletter you didn't open.</span></li>
+        <li><time datetime="2026-09-26">Sat 26 Sept</time><span class="what">Natural wine and a trio at Donau115</span><span class="note">Ten minutes from home. You stayed in.</span></li>
+      </ol>
+      <div class="stamp-row"><p class="stamp">Next month, you're going.</p></div>
+    </div>
+  </section>
+
+  <section class="how" id="how" aria-labelledby="how-h">
+    <div class="wrap">
+      <h2 class="display section-head" id="how-h">Three minutes to set up. Then it's just texts.</h2>
+      <div class="steps">
+        <ol>
+          <li><span class="n" aria-hidden="true">1</span><div><h3>Connect mail and calendar</h3><p>Read-only. Your inbox shows what you already love: the bands you've bought tickets for, the cinema newsletters you actually open. Your calendar shows when you're free.</p></div></li>
+          <li><span class="n" aria-hidden="true">2</span><div><h3>Set a budget</h3><p>A monthly limit, and a smaller amount it may spend without asking. Say €100 a month, and surprises up to €25.</p></div></li>
+          <li><span class="n" aria-hidden="true">3</span><div><h3>Say yes</h3><p>When it finds something, it texts you. Reply yes and it books. If it's under your surprise limit and it's sure you'll love it, it books first and tells you after.</p></div></li>
+        </ol>
+        <div class="chat" role="figure" aria-label="Example WhatsApp conversation">
+          <p class="who">Unmissed</p>
+          <p class="msg them">Hania Rani is playing Silent Green on Saturday at 20:00. You've had her on repeat since March. Two seats in row D are €58 together. Want them?</p>
+          <div class="me-wrap"><p class="who">You</p><p class="msg me">yes!! obviously</p></div>
+          <p class="who">Unmissed</p>
+          <p class="msg them">Booked. Tickets are in your inbox and Saturday is in your calendar. You have €42 left for October.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="money" id="money" aria-labelledby="money-h">
+    <div class="wrap money-grid">
+      <h2 class="display section-head" id="money-h">It can't spend more than you said.</h2>
+      <dl>
+        <dt>Your limits are rules, not suggestions</dt>
+        <dd>The AI picks the events. A plain, fixed rule decides whether money moves: inside your surprise limit it books, above it asks, past your monthly budget it stops.</dd>
+        <dt>The price is checked at checkout</dt>
+        <dd>If the total on the payment page is higher than the price it quoted you, it doesn't pay. It texts you instead.</dd>
+        <dt>It never sees your card number</dt>
+        <dd>Payment details are filled in by the browser at the last step. The model only ever knows the last four digits.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section class="close" id="start" aria-labelledby="start-h">
+    <div class="wrap">
+      <h2 class="display" id="start-h">What are you doing Thursday?</h2>
+      <p>Send one message to start. Unmissed replies with a setup link, and you'll have your first suggestion before the weekend.</p>
+      <a class="btn" href="#">Text Unmissed on WhatsApp</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap"><span>Unmissed, made in Berlin</span><span>Read-only access. Disconnect any time by texting “stop”.</span></div>
+</footer>
+
+<script>
+  const missed = document.querySelector('.missed');
+  new IntersectionObserver((entries, obs) => {
+    if (entries[0].isIntersecting) { missed.classList.add('seen'); obs.disconnect(); }
+  }, { threshold: .35 }).observe(missed);
+</script>
+</body>
+</html>

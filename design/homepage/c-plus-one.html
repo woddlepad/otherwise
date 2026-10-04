@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plus One: doors open at eight</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@300..700&family=Gloock&display=swap" rel="stylesheet">
+<style>
+  /* Concept C: the hour before going out. A dusk sky over the city, windows lighting up, warm lamp light as the only accent. */
+  :root {
+    --night: #12143A;
+    --deep: #1B1E52;
+    --violet: #4B3F8F;
+    --rose: #D9809A;
+    --peach: #FFB48A;
+    --lamp: #FFD27D;
+    --mist: #ECE8F7;
+    --dim: #A9A8CC;
+    --line: rgba(236, 232, 247, .16);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--night);
+    color: var(--mist);
+    font-family: "Albert Sans", system-ui, sans-serif;
+    font-size: 1.125rem;
+    line-height: 1.6;
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--lamp); outline-offset: 4px; border-radius: 4px; }
+  .wrap { width: min(1200px, 100% - 3rem); margin-inline: auto; }
+  .serif { font-family: "Gloock", Georgia, serif; font-weight: 400; }
+
+  .btn {
+    display: inline-block;
+    background: var(--lamp); color: var(--night);
+    text-decoration: none; font-weight: 600;
+    padding: .9rem 1.5rem; border-radius: 999px;
+    box-shadow: 0 0 0 0 rgba(255, 210, 125, .5), 0 10px 40px -10px rgba(255, 210, 125, .55);
+    transition: transform .15s, box-shadow .2s;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 6px rgba(255, 210, 125, .16), 0 14px 44px -10px rgba(255, 210, 125, .7); }
+  .btn.small { padding: .55rem 1.1rem; font-size: .95rem; }
+
+  /* sky */
+  .sky {
+    position: relative;
+    min-height: max(100svh, 820px);
+    display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #121540 0%, #1E2160 28%, #3D3683 50%, #7D5096 66%, #C9708F 79%, #F39A86 88%, #FFC08C 96%);
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .stars { position: absolute; inset: 0 0 40% 0; z-index: -1; }
+  .stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; }
+  .moon { position: absolute; z-index: -1; top: 13%; right: 9%; width: 54px; height: 54px; border-radius: 50%; box-shadow: inset -12px 4px 0 0 #F6F0DE; transform: rotate(-20deg); opacity: .9; }
+  .top { display: flex; justify-content: space-between; align-items: center; padding-block: 1.5rem; }
+  .logo { text-decoration: none; font-size: 1.6rem; letter-spacing: -.01em; }
+  .logo span { color: var(--lamp); }
+  .top nav { display: flex; gap: 2rem; align-items: center; font-size: .97rem; }
+  .top nav a:not(.btn) { text-decoration: none; color: var(--dim); }
+  .top nav a:not(.btn):hover { color: var(--mist); }
+
+  .hero { flex: 1; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 4rem; align-items: center; padding-block: 1rem 16rem; }
+  .now { display: inline-flex; align-items: center; gap: .6rem; color: var(--mist); font-size: 1rem; margin: 0 0 1.5rem; }
+  .now::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--lamp); box-shadow: 0 0 12px 2px rgba(255, 210, 125, .8); }
+  h1 { font-size: clamp(3.1rem, 5.4vw, 5.6rem); line-height: 1.02; letter-spacing: -.015em; margin: 0; max-width: 14ch; }
+  h1 span { display: block; }
+  .lede { max-width: 44ch; font-size: 1.18rem; color: #D9D5EC; margin: 1.5rem 0 2rem; }
+
+  .thread { display: grid; gap: .85rem; max-width: 400px; justify-self: end; width: 100%; }
+  .bubble { padding: .9rem 1.1rem; border-radius: 20px; font-size: 1rem; line-height: 1.45; }
+  .bubble small { display: block; font-size: .78rem; margin-top: .35rem; opacity: .6; }
+  .bubble.po { background: rgba(236, 232, 247, .95); color: var(--night); border-bottom-left-radius: 6px; margin-right: 2.5rem; }
+  .bubble.me { background: var(--lamp); color: var(--night); border-bottom-right-radius: 6px; justify-self: end; margin-left: 2.5rem; }
+  .who { font-size: .85rem; color: var(--mist); margin: 0 0 -.4rem .25rem; }
+
+  .city { position: absolute; left: 0; right: 0; bottom: -1px; height: 260px; z-index: 1; pointer-events: none; }
+  .city svg { width: 100%; height: 100%; display: block; }
+  .win { opacity: 0; animation: on .01s linear forwards; }
+  @keyframes on { to { opacity: var(--o); } }
+
+  /* sections on the night */
+  section { padding-block: 7rem; }
+  h2 { font-family: "Gloock", Georgia, serif; font-weight: 400; font-size: clamp(2.6rem, 5vw, 4.3rem); line-height: 1.05; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  .intro { color: var(--dim); max-width: 44ch; margin: 1.25rem 0 0; font-size: 1.15rem; }
+
+  /* October, a real sequence of dates */
+  .month-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.5fr); gap: 4rem; }
+  .month-grid .sticky { position: sticky; top: 3rem; align-self: start; }
+  .nights { list-style: none; margin: 0; padding: 0; }
+  .nights li { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) auto; gap: 1.5rem; align-items: baseline; padding-block: 1.6rem; border-bottom: 1px solid var(--line); }
+  .nights li:first-child { border-top: 1px solid var(--line); }
+  .nights .date { font-family: "Gloock", serif; font-size: 3rem; line-height: .9; color: var(--lamp); }
+  .nights .date small { display: block; font-family: "Albert Sans", sans-serif; font-size: .85rem; color: var(--dim); margin-top: .45rem; }
+  .nights h3 { font-family: "Gloock", serif; font-weight: 400; font-size: 1.65rem; line-height: 1.15; margin: 0 0 .3rem; }
+  .nights p { margin: 0; color: var(--dim); font-size: 1rem; }
+  .nights .how { font-size: .92rem; white-space: nowrap; padding: .3rem .8rem; border-radius: 999px; border: 1px solid var(--line); color: var(--mist); }
+  .nights .how.surprise { border-color: rgba(255, 210, 125, .5); color: var(--lamp); }
+  .nights li.passed .date, .nights li.passed h3 { color: var(--dim); }
+
+  /* money */
+  .money { background: var(--deep); }
+  .budget { margin-top: 3.5rem; }
+  .bar { display: flex; height: 64px; border-radius: 14px; overflow: hidden; background: repeating-linear-gradient(135deg, rgba(236,232,247,.06) 0 8px, rgba(236,232,247,.02) 8px 16px); box-shadow: inset 0 0 0 1px var(--line); }
+  .bar span { display: flex; align-items: center; padding-inline: 1rem; font-size: .92rem; font-weight: 600; color: var(--night); white-space: nowrap; overflow: hidden; border-right: 2px solid var(--deep); }
+  .bar .a { background: var(--lamp); }
+  .bar .b { background: var(--peach); }
+  .bar .c { background: var(--rose); }
+  .bar .d { background: #B9A8F0; }
+  .bar-legend { display: flex; justify-content: space-between; color: var(--dim); font-size: .95rem; margin-top: .9rem; gap: 1rem; flex-wrap: wrap; }
+  .bar-legend strong { color: var(--mist); font-weight: 600; }
+  .rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3rem; margin: 4.5rem 0 0; }
+  .rules dt { font-family: "Gloock", serif; font-size: 1.5rem; line-height: 1.2; margin-bottom: .6rem; }
+  .rules dd { margin: 0; color: var(--dim); }
+
+  /* steps */
+  .steps { list-style: none; padding: 0; margin: 4rem 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3rem; }
+  .steps li { border-top: 1px solid var(--line); padding-top: 1.5rem; }
+  .steps .n { font-family: "Gloock", serif; font-size: 3.4rem; line-height: 1; color: var(--lamp); }
+  .steps h3 { font-family: "Gloock", serif; font-weight: 400; font-size: 1.6rem; margin: 1rem 0 .5rem; }
+  .steps p { margin: 0; color: var(--dim); max-width: 34ch; }
+
+  .close { text-align: center; padding-block: 8rem 9rem; background: radial-gradient(60% 70% at 50% 110%, rgba(255, 180, 138, .35), transparent 70%), var(--night); }
+  .close h2 { font-size: clamp(3rem, 7vw, 6rem); max-width: 14ch; margin-inline: auto; }
+  .close p { color: var(--dim); max-width: 42ch; margin: 1.5rem auto 2.5rem; font-size: 1.2rem; }
+  footer { border-top: 1px solid var(--line); padding-block: 2rem; color: var(--dim); font-size: .92rem; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+  @media (max-width: 960px) {
+    .hero { grid-template-columns: 1fr; gap: 3rem; padding-bottom: 13rem; }
+    .thread { justify-self: start; }
+    .month-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+    .month-grid .sticky { position: static; }
+    .rules, .steps { grid-template-columns: 1fr; gap: 2rem; }
+  }
+  @media (max-width: 640px) {
+    .wrap { width: min(1200px, 100% - 2rem); }
+    .top nav a:not(.btn) { display: none; }
+    .city { height: 190px; }
+    .moon { top: 6.4rem; right: 1.25rem; width: 34px; height: 34px; box-shadow: inset -8px 3px 0 0 #F6F0DE; }
+    h1 { font-size: 2.75rem; }
+    h1 span { text-wrap: balance; }
+    .nights li { grid-template-columns: 4rem minmax(0, 1fr); }
+    .nights .how { grid-column: 2; justify-self: start; }
+    .nights .date { font-size: 2.4rem; }
+    section { padding-block: 5rem; }
+    .bar span { font-size: 0; padding: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .win { animation: none; opacity: var(--o); }
+    .btn { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sky">
+  <div class="stars" id="stars" aria-hidden="true"></div>
+  <div class="moon" aria-hidden="true"></div>
+
+  <header class="wrap top">
+    <a class="logo serif" href="#">Plus One<span>.</span></a>
+    <nav aria-label="Main">
+      <a href="#october">What it finds</a>
+      <a href="#money">Your budget</a>
+      <a class="btn small" href="#start">Say hi on WhatsApp</a>
+    </nav>
+  </header>
+
+  <main class="wrap hero">
+    <div>
+      <p class="now" id="now">Saturday, 19:42 in Berlin</p>
+      <h1 class="serif"><span>Doors open at eight.</span> <span>You already have a&nbsp;ticket.</span></h1>
+      <p class="lede">Plus One learns what you love from your inbox, watches your calendar for free evenings, and books the concerts, films and late talks you'd otherwise hear about too late. Always inside the budget you set.</p>
+      <a class="btn" href="#start">Say hi on WhatsApp</a>
+    </div>
+
+    <div class="thread" role="figure" aria-label="Example conversation with Plus One">
+      <p class="who">Plus One</p>
+      <p class="bubble po">Free tonight? Hania Rani plays Silent Green at 20:00. You've had her on repeat since March. Two seats in row D, €58 together.<small>17:05</small></p>
+      <p class="bubble me">yes!! asking Jonas now<small>17:09</small></p>
+      <p class="bubble po">Booked. Tickets are in your inbox and it's in your calendar. Leave by 19:25, the M8 is quickest.<small>17:10</small></p>
+    </div>
+  </main>
+
+  <div class="city" aria-hidden="true"><svg id="city" viewBox="0 0 1440 300" preserveAspectRatio="xMidYMax slice"></svg></div>
+</div>
+
+<section id="october" aria-labelledby="oct-h">
+  <div class="wrap month-grid">
+    <div class="sticky">
+      <h2 id="oct-h">Your October.</h2>
+      <p class="intro">Five evenings that would otherwise have been a sofa and a phone. It asked about most of them, booked one as a surprise, and when you turned one down, it took the hint.</p>
+    </div>
+    <ol class="nights">
+      <li><span class="date">02<small>Friday</small></span><div><h3>Late night at the Neues Museum</h3><p>Nefertiti, nearly empty rooms, a bar in the courtyard</p></div><span class="how">You said yes</span></li>
+      <li><span class="date">08<small>Thursday</small></span><div><h3>In the Mood for Love, on 35mm</h3><p>Babylon Mitte, the 21:00 screening</p></div><span class="how surprise">A surprise, €11</span></li>
+      <li class="passed"><span class="date">10<small>Saturday</small></span><div><h3>Klubnacht at Berghain</h3><p>It noticed you'd never bought a club ticket</p></div><span class="how">You passed</span></li>
+      <li><span class="date">14<small>Wednesday</small></span><div><h3>A science slam in Neukölln</h3><p>Heimathafen, six researchers, ten minutes each</p></div><span class="how">You said yes</span></li>
+      <li><span class="date">17<small>Saturday</small></span><div><h3>Hania Rani at Silent Green</h3><p>Two seats in row D, one for Jonas</p></div><span class="how">You said yes</span></li>
+    </ol>
+  </div>
+</section>
+
+<section class="money" id="money" aria-labelledby="money-h">
+  <div class="wrap">
+    <h2 id="money-h">€120 a month. Not a cent more.</h2>
+    <p class="intro">You choose the monthly budget and how much it may spend without asking. Here's October.</p>
+    <div class="budget">
+      <div class="bar" role="img" aria-label="October budget: €18 museum, €11 cinema, €14 science slam, €58 concert spent, €19 left of €120">
+        <span class="a" style="width:15%">Museum €18</span>
+        <span class="b" style="width:9.17%">Film €11</span>
+        <span class="d" style="width:11.67%">Slam €14</span>
+        <span class="c" style="width:48.33%">Hania Rani, two seats €58</span>
+      </div>
+      <div class="bar-legend"><span><strong>€101</strong> spent on four evenings</span><span><strong>€19</strong> left until 1 November</span></div>
+    </div>
+    <dl class="rules">
+      <div><dt>Surprises stay small</dt><dd>It only books without asking when it's sure and the price is under your limit, say €25. Everything else is a text first.</dd></div>
+      <div><dt>The price is checked twice</dt><dd>If the checkout total is higher than the price it quoted you, it doesn't pay. It asks.</dd></div>
+      <div><dt>Your card stays out of it</dt><dd>Card details are filled in by the browser at the very last step. The AI only knows the last four digits.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section aria-labelledby="how-h">
+  <div class="wrap">
+    <h2 id="how-h">Ready by tonight.</h2>
+    <ol class="steps">
+      <li><span class="n" aria-hidden="true">1</span><h3>Say hi on WhatsApp</h3><p>It replies with a short setup link. No app to install.</p></li>
+      <li><span class="n" aria-hidden="true">2</span><h3>Connect mail and calendar</h3><p>Read-only. Your receipts and newsletters show what you love, your calendar shows when you're free.</p></li>
+      <li><span class="n" aria-hidden="true">3</span><h3>Pick your budget</h3><p>A monthly amount and a surprise limit. Change either one by text whenever you like.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="close" id="start" aria-labelledby="start-h">
+  <div class="wrap">
+    <h2 id="start-h">Tonight is still open.</h2>
+    <p>Send one message. By the weekend you'll have somewhere to be.</p>
+    <a class="btn" href="#">Say hi on WhatsApp</a>
+  </div>
+</section>
+
+<footer><div class="wrap"><span>Plus One, Berlin</span><span>Text “stop” any time and it forgets you.</span></div></footer>
+
+<script>
+  // live local time, so the hero is always "now"
+  const nowEl = document.getElementById('now');
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Berlin';
+  const place = /^(UTC|Etc\/|GMT)/.test(tz) || !tz.includes('/') ? 'Berlin' : tz.split('/').pop().replace(/_/g, ' ');
+  function tick() {
+    const d = new Date();
+    const day = d.toLocaleDateString('en-GB', { weekday: 'long' });
+    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    nowEl.textContent = `${day}, ${time} in ${place}`;
+  }
+  tick(); setInterval(tick, 20000);
+
+  // seeded random so the skyline is the same on every visit
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+  // stars
+  const stars = document.getElementById('stars');
+  stars.innerHTML = Array.from({ length: 70 }, () => {
+    const s = rnd() < .15 ? 3 : 2;
+    return `<i style="left:${rnd() * 100}%;top:${Math.pow(rnd(), 1.6) * 100}%;opacity:${(.25 + rnd() * .6).toFixed(2)};width:${s}px;height:${s}px"></i>`;
+  }).join('');
+
+  // skyline: back row, Fernsehturm, front row; windows switch on one by one
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('city');
+  const H = 300;
+  let out = '';
+  function row(color, minH, maxH, lit, delayBase) {
+    let x = -20;
+    while (x < 1460) {
+      const w = 38 + rnd() * 92, h = minH + rnd() * (maxH - minH), y = H - h;
+      out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h + 2}" fill="${color}"/>`;
+      if (rnd() < .18) out += `<rect x="${(x + w * .3).toFixed(1)}" y="${(y - 14).toFixed(1)}" width="${(w * .25).toFixed(1)}" height="14" fill="${color}"/>`;
+      if (lit) {
+        for (let wy = y + 12; wy < H - 14; wy += 15) {
+          for (let wx = x + 8; wx < x + w - 10; wx += 13) {
+            if (rnd() < lit) {
+              const o = (.45 + rnd() * .55).toFixed(2);
+              const delay = (delayBase + rnd() * 2.6).toFixed(2);
+              out += `<rect class="win" x="${wx.toFixed(1)}" y="${wy.toFixed(1)}" width="5" height="7" fill="#FFD27D" style="--o:${o};animation-delay:${delay}s"/>`;
+            }
+          }
+        }
+      }
+      x += w + (rnd() < .3 ? 6 + rnd() * 20 : 0);
+    }
+  }
+  row('#2A2560', 120, 210, .08, .6);
+  // Fernsehturm
+  const tx = 1010;
+  out += `<g fill="#1A1A4A">
+    <path d="M${tx - 9} ${H} L${tx - 4} 70 L${tx + 4} 70 L${tx + 9} ${H} Z"/>
+    <circle cx="${tx}" cy="66" r="19"/>
+    <rect x="${tx - 6}" y="44" width="12" height="8" rx="2"/>
+    <rect x="${tx - 2.5}" y="0" width="5" height="46"/>
+  </g>
+  <circle cx="${tx}" cy="3" r="2.6" fill="#FF6B6B"/>
+  <rect class="win" x="${tx - 15}" y="64" width="30" height="3" rx="1.5" fill="#FFD27D" style="--o:.8;animation-delay:.4s"/>`;
+  row('#12143A', 50, 140, .16, 1);
+  svg.innerHTML = out;
+</script>
+</body>
+</html>

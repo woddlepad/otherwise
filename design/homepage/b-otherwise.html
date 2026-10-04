@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Otherwise: for the evenings you'd have stayed in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<style>
+  /* Concept B: the calendar is the product. Precise, calm, one family, colour only where something was booked. */
+  :root {
+    --paper: #F6F7F9;
+    --surface: #FFFFFF;
+    --ink: #161937;
+    --muted: #5B5F7A;
+    --line: #DCDFE7;
+    --cobalt: #2B3FF0;
+    --cobalt-tint: #E7EAFF;
+    --marigold: #FFC53D;
+    --hatch: #C9CDD9;
+    --radius-s: 6px;
+    --radius-l: 18px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Host Grotesk", system-ui, sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    font-feature-settings: "tnum" 1;
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 3px solid var(--cobalt); outline-offset: 3px; border-radius: 4px; }
+  .wrap { width: min(1280px, 100% - 3rem); margin-inline: auto; }
+
+  .top { display: flex; align-items: center; justify-content: space-between; padding-block: 1.5rem; }
+  .logo { display: inline-flex; align-items: center; gap: .6rem; font-weight: 650; font-size: 1.3rem; letter-spacing: -.02em; text-decoration: none; }
+  .logo svg { display: block; }
+  .top nav { display: flex; align-items: center; gap: 2rem; font-size: .975rem; }
+  .top nav a:not(.btn) { text-decoration: none; color: var(--muted); }
+  .top nav a:not(.btn):hover { color: var(--ink); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: .55rem;
+    background: var(--cobalt); color: #fff; text-decoration: none;
+    font-weight: 600; font-size: 1rem;
+    padding: .8rem 1.25rem; border-radius: 999px;
+    transition: background .15s;
+  }
+  .btn:hover { background: #1D2FD0; }
+  .btn.quiet { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .btn.quiet:hover { box-shadow: inset 0 0 0 1.5px var(--ink); background: transparent; }
+  .btn.small { padding: .55rem 1rem; font-size: .925rem; }
+
+  /* hero */
+  .hero { padding-top: 4rem; }
+  .hero-head { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 3rem; align-items: end; }
+  h1 {
+    font-size: clamp(3.2rem, 7.4vw, 7rem);
+    font-weight: 600;
+    line-height: .95;
+    letter-spacing: -.045em;
+    margin: 0;
+    max-width: 11ch;
+  }
+  .hero-side p { margin: 0 0 1.75rem; font-size: 1.2rem; color: var(--muted); max-width: 40ch; }
+  .hero-side p strong { color: var(--ink); font-weight: 600; }
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+
+  /* the week */
+  .week-card { margin-top: 4rem; background: var(--surface); border-radius: var(--radius-l); padding: 1.5rem 1.5rem 1.25rem; box-shadow: 0 1px 0 var(--line), 0 30px 60px -40px rgba(22, 25, 55, .35); }
+  .week-bar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 0 .25rem 1.25rem; }
+  .week-bar h2 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: -.01em; }
+  .legend { display: flex; gap: 1.5rem; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; font-size: .9rem; color: var(--muted); }
+  .legend li { display: inline-flex; align-items: center; gap: .5rem; }
+  .sw { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
+  .sw.mine { background: repeating-linear-gradient(135deg, var(--hatch) 0 2px, #EEF0F4 2px 6px); }
+  .sw.booked { background: var(--cobalt); }
+  .sw.asked { box-shadow: inset 0 0 0 2px var(--cobalt); background: var(--cobalt-tint); }
+
+  .scroller { overflow-x: auto; }
+  .week { display: grid; grid-template-columns: 3.25rem repeat(7, minmax(0, 1fr)); min-width: 860px; }
+  .day-h { padding: .5rem .6rem .9rem; border-left: 1px solid var(--line); }
+  .day-h .dow { display: block; font-size: .85rem; color: var(--muted); }
+  .day-h .dom { display: block; font-size: 1.6rem; font-weight: 600; letter-spacing: -.03em; line-height: 1.1; }
+  .gutter { position: relative; }
+  .gutter span { position: absolute; right: .6rem; font-size: .78rem; color: var(--muted); transform: translateY(-50%); }
+  .col { position: relative; height: 470px; border-left: 1px solid var(--line); background-image: linear-gradient(var(--line) 1px, transparent 1px); background-size: 100% calc(100% / 7); }
+  .ev {
+    position: absolute; left: 6px; right: 6px;
+    top: calc(var(--s) / 7 * 100%); height: calc(var(--d) / 7 * 100% - 4px);
+    border-radius: var(--radius-s);
+    padding: .5rem .6rem;
+    font-size: .86rem; line-height: 1.3;
+    overflow: hidden;
+  }
+  .ev b { display: block; font-weight: 600; font-size: .9rem; }
+  .ev span { display: block; }
+  .ev.mine { background: repeating-linear-gradient(135deg, #E2E5EC 0 2px, #F0F2F6 2px 7px); color: var(--muted); }
+  .ev.booked, .ev.asked { transform-origin: top; animation: fill .65s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 260ms + 500ms); }
+  .ev.booked { background: var(--cobalt); color: #fff; }
+  .ev.booked .tag { margin-top: .4rem; display: inline-flex; align-items: center; gap: .3rem; font-size: .78rem; font-weight: 600; background: rgba(255,255,255,.16); border-radius: 999px; padding: .12rem .5rem .12rem .3rem; }
+  .ev.booked .tag::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--marigold) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6.2l2 2 4-4.4' fill='none' stroke='%23161937' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat; }
+  .ev.asked { background: var(--cobalt-tint); box-shadow: inset 0 0 0 2px var(--cobalt); color: var(--ink); }
+  .ev.asked .tag { margin-top: .4rem; font-size: .78rem; font-weight: 600; color: var(--cobalt); }
+  @keyframes fill {
+    from { opacity: 0; transform: scaleY(.2); }
+    60%  { opacity: 1; }
+    to   { opacity: 1; transform: scaleY(1); }
+  }
+  .ev.booked > *, .ev.asked > * { animation: label .4s ease both; animation-delay: calc(var(--i) * 260ms + 850ms); }
+  @keyframes label { from { opacity: 0; } to { opacity: 1; } }
+  .week-foot { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding: 1.1rem .25rem 0; font-size: .92rem; color: var(--muted); border-top: 1px solid var(--line); margin-top: .25rem; }
+
+  section { padding-block: 7rem; }
+  h2.big { font-size: clamp(2.4rem, 4.6vw, 4rem); font-weight: 600; line-height: 1; letter-spacing: -.04em; margin: 0; max-width: 16ch; }
+  .sub { color: var(--muted); font-size: 1.15rem; max-width: 46ch; margin: 1.25rem 0 0; }
+
+  /* the decision explorer */
+  .decide-grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr); gap: 4rem; align-items: start; }
+  .controls { margin-top: 2.5rem; display: grid; gap: 2rem; }
+  .control label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; margin-bottom: .6rem; }
+  .control output { font-size: 1.6rem; letter-spacing: -.03em; font-weight: 600; }
+  .control small { display: block; color: var(--muted); font-size: .9rem; margin-top: .5rem; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 99px; background: linear-gradient(var(--cobalt), var(--cobalt)) 0 / var(--p, 50%) 100% no-repeat, var(--line); cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 2px var(--cobalt), 0 2px 6px rgba(22,25,55,.2); }
+  input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 2px var(--cobalt), 0 2px 6px rgba(22,25,55,.2); }
+  .left-now { margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--muted); }
+  .left-now strong { color: var(--ink); }
+
+  .ideas { background: var(--surface); border-radius: var(--radius-l); padding: .5rem 1.75rem; box-shadow: 0 1px 0 var(--line); }
+  .ideas ul { list-style: none; margin: 0; padding: 0; }
+  .ideas li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem 1.5rem; padding-block: 1.15rem; border-bottom: 1px solid var(--line); }
+  .ideas li:last-child { border-bottom: 0; }
+  .ideas .t { font-weight: 600; font-size: 1.08rem; letter-spacing: -.01em; }
+  .ideas .meta { color: var(--muted); font-size: .92rem; grid-column: 1; }
+  .ideas .why { font-size: .92rem; grid-column: 1 / -1; color: var(--ink); }
+  .verdict { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: .9rem; font-weight: 600; padding: .35rem .8rem; border-radius: 999px; white-space: nowrap; transition: background .2s, color .2s, box-shadow .2s; }
+  .verdict.book { background: var(--cobalt); color: #fff; }
+  .verdict.ask { background: var(--cobalt-tint); color: var(--cobalt); box-shadow: inset 0 0 0 1.5px var(--cobalt); }
+  .verdict.skip { background: #EEF0F4; color: var(--muted); }
+  .ideas li.is-skip .t { color: var(--muted); }
+
+  /* steps: a true sequence */
+  .steps-sec { background: var(--surface); }
+  .steps { list-style: none; padding: 0; margin: 4rem 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3rem; counter-reset: s; }
+  .steps li { position: relative; padding-top: 2.75rem; }
+  .steps li::before { counter-increment: s; content: counter(s); position: absolute; top: 0; left: 0; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--paper); font-weight: 600; font-size: .95rem; }
+  .steps li:not(:last-child)::after { content: ""; position: absolute; top: 1rem; left: 2.75rem; right: -2.25rem; height: 1px; background: var(--line); }
+  .steps h3 { margin: 0 0 .6rem; font-size: 1.45rem; font-weight: 600; letter-spacing: -.025em; }
+  .steps p { margin: 0; color: var(--muted); max-width: 36ch; }
+
+  /* trust */
+  .trust-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 4rem; }
+  .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.5rem 3rem; margin: 0; }
+  .facts div { border-top: 2px solid var(--ink); padding-top: 1rem; }
+  .facts dt { font-weight: 600; font-size: 1.15rem; letter-spacing: -.015em; margin-bottom: .4rem; }
+  .facts dd { margin: 0; color: var(--muted); }
+
+  .close { padding-block: 6rem 7rem; text-align: left; }
+  .close-card { background: var(--ink); color: var(--paper); border-radius: var(--radius-l); padding: clamp(2.5rem, 6vw, 5rem); display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 3rem; align-items: end; }
+  .close h2 { font-size: clamp(2.6rem, 5.6vw, 5rem); font-weight: 600; line-height: .98; letter-spacing: -.045em; margin: 0; }
+  .close p { color: #B9BCD3; margin: 0 0 1.5rem; max-width: 36ch; font-size: 1.1rem; }
+  .close .btn { background: var(--marigold); color: var(--ink); }
+  .close .btn:hover { background: #FFD46E; }
+  footer { padding-block: 0 3rem; color: var(--muted); font-size: .9rem; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+  @media (max-width: 960px) {
+    .hero-head, .decide-grid, .trust-grid, .close-card { grid-template-columns: 1fr; gap: 2rem; }
+    .steps { grid-template-columns: 1fr; gap: 2.25rem; }
+    .steps li:not(:last-child)::after { display: none; }
+  }
+  @media (max-width: 640px) {
+    .wrap { width: min(1280px, 100% - 2rem); }
+    .top nav a:not(.btn) { display: none; }
+    .hero { padding-top: 2rem; }
+    .week-card { padding: 1rem .75rem; }
+    .facts { grid-template-columns: 1fr; }
+    section { padding-block: 4.5rem; }
+    .ideas { padding: .25rem 1.1rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ev.booked, .ev.asked, .ev > * { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="wrap top">
+  <a class="logo" href="#" aria-label="Otherwise home">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+      <rect x="1" y="1" width="24" height="24" rx="6" fill="none" stroke="#161937" stroke-width="2"/>
+      <rect x="6" y="11" width="14" height="9" rx="2" fill="#2B3FF0"/>
+    </svg>
+    otherwise
+  </a>
+  <nav aria-label="Main">
+    <a href="#decide">How it decides</a>
+    <a href="#trust">Privacy and money</a>
+    <a class="btn small" href="#start">Start on WhatsApp</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div class="hero-head">
+      <h1>Otherwise, you'd have stayed in.</h1>
+      <div class="hero-side">
+        <p><strong>Otherwise finds the free evenings in your week and fills them with things you'd pick yourself.</strong> It learns your taste from your inbox, books concerts, screenings and talks within your budget, and texts you on WhatsApp.</p>
+        <div class="actions">
+          <a class="btn" href="#start">Start on WhatsApp</a>
+          <a class="btn quiet" href="#decide">See how it decides</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="week-card">
+      <div class="week-bar">
+        <h2>Your week, 12 to 18 October</h2>
+        <ul class="legend">
+          <li><span class="sw mine"></span>Already in your calendar</li>
+          <li><span class="sw booked"></span>Booked for you</li>
+          <li><span class="sw asked"></span>Waiting for your yes</li>
+        </ul>
+      </div>
+      <div class="scroller" tabindex="0" aria-label="Week calendar, scrolls sideways on small screens">
+        <div class="week" id="week"></div>
+      </div>
+      <div class="week-foot">
+        <span>Four free evenings this week. Three booked, one waiting on you.</span>
+        <span>€80 of €120 left this month</span>
+      </div>
+    </div>
+  </div>
+
+  <section id="decide" aria-labelledby="decide-h">
+    <div class="wrap decide-grid">
+      <div>
+        <h2 class="big" id="decide-h">You set two numbers. It follows them.</h2>
+        <p class="sub">Every idea gets a price and a score for how sure it is you'll go. A fixed rule, not the AI, decides what happens next. Try it.</p>
+        <div class="controls">
+          <div class="control">
+            <label for="monthly">Monthly budget <output id="monthly-out" for="monthly">€120</output></label>
+            <input id="monthly" type="range" min="40" max="300" step="10" value="120">
+          </div>
+          <div class="control">
+            <label for="surprise">Book without asking up to <output id="surprise-out" for="surprise">€25</output></label>
+            <input id="surprise" type="range" min="0" max="100" step="5" value="25">
+            <small>Anything above this, it texts you first.</small>
+          </div>
+        </div>
+        <p class="left-now">Already spent in October: <strong>€40</strong>. Left: <strong id="left">€80</strong></p>
+      </div>
+      <div class="ideas" aria-live="polite">
+        <ul id="ideas"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="steps-sec" aria-labelledby="steps-h">
+    <div class="wrap">
+      <h2 class="big" id="steps-h">Set up once, in about three minutes.</h2>
+      <ol class="steps">
+        <li><h3>Connect mail and calendar</h3><p>Gmail or Outlook, read-only. Your ticket receipts and the newsletters you open say what you like. Your calendar says when you're free.</p></li>
+        <li><h3>Set your two numbers</h3><p>A monthly budget, and how much it may spend without asking. You can change both by text at any time.</p></li>
+        <li><h3>Get your first plan</h3><p>Within a day it texts you something worth leaving the house for. Reply yes, no, or "more like this".</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="trust" aria-labelledby="trust-h">
+    <div class="wrap trust-grid">
+      <h2 class="big" id="trust-h">Careful with your inbox and your card.</h2>
+      <dl class="facts">
+        <div><dt>Reads, never sends</dt><dd>Mail access is read-only. It looks for tickets, bookings and newsletters, and never writes from your account.</dd></div>
+        <div><dt>Checks before it pays</dt><dd>If the checkout total is higher than the price it showed you, it stops and asks.</dd></div>
+        <div><dt>Never sees your card</dt><dd>Card details are filled in at the last step by the browser. The AI only knows the last four digits.</dd></div>
+        <div><dt>Puts it in your calendar</dt><dd>Everything it books lands in your calendar with the venue, doors time and tickets attached.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <div class="wrap close" id="start">
+    <div class="close-card">
+      <h2>Next Thursday is still empty. It doesn't have to be.</h2>
+      <div>
+        <p>Send one WhatsApp message. You'll get a setup link back, and your first suggestion within a day.</p>
+        <a class="btn" href="#">Start on WhatsApp</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap"><span>Otherwise, Berlin</span><span>Stop any time by texting “stop”.</span></div>
+</footer>
+
+<script>
+  // ---- the week (17:00 to 24:00, start/duration in hours from 17:00)
+  const days = [['Mon', 12], ['Tue', 13], ['Wed', 14], ['Thu', 15], ['Fri', 16], ['Sat', 17], ['Sun', 18]];
+  const events = {
+    0: [{ k: 'mine', s: 1.5, d: 1.5, t: 'Climbing', m: 'Berta Block' }],
+    1: [{ k: 'mine', s: 2, d: 3.5, t: "Dinner at Lea's", m: 'Kreuzberg' }],
+    2: [{ k: 'asked', s: 2.5, d: 1.75, t: 'Stand-up in English', m: 'Comedy Café, €16', tag: 'Asked you at 14:02', i: 2 }],
+    3: [{ k: 'mine', s: 0, d: 1.25, t: 'Call with Sam', m: '' },
+        { k: 'booked', s: 4, d: 2.5, t: 'In the Mood for Love', m: '35mm, Babylon Mitte', tag: '€11, a surprise', i: 0 }],
+    4: [{ k: 'booked', s: 3, d: 2.75, t: 'Museum after dark', m: 'Neues Museum', tag: '€18, booked', i: 3 }],
+    5: [{ k: 'booked', s: 3, d: 2.25, t: 'Hania Rani', m: 'Silent Green, row D', tag: '2 seats, €58', i: 1 }],
+    6: [{ k: 'mine', s: 0, d: 2, t: "Mum's birthday", m: 'video call' }],
+  };
+  const week = document.getElementById('week');
+  const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let html = '<div></div>' + days.map(([d, n]) => `<div class="day-h"><span class="dow">${d}</span><span class="dom">${n}</span></div>`).join('');
+  html += '<div class="gutter">' + [18, 19, 20, 21, 22, 23].map((h, i) => `<span style="top:${(i + 1) / 7 * 100}%">${h}:00</span>`).join('') + '</div>';
+  days.forEach((_, di) => {
+    html += '<div class="col">' + (events[di] || []).map(e =>
+      `<div class="ev ${e.k}" style="--s:${e.s};--d:${e.d};--i:${e.i ?? 0}"><b>${esc(e.t)}</b>${e.m ? `<span>${esc(e.m)}</span>` : ''}${e.tag ? `<span class="tag">${esc(e.tag)}</span>` : ''}</div>`
+    ).join('') + '</div>';
+  });
+  week.innerHTML = html;
+
+  // ---- the decision rule (mirrors src/lib/policy.ts: auto-book at 0.85, ask from 0.6)
+  const SPENT = 40, AUTO = 0.85, ASK = 0.6;
+  const ideas = [
+    { t: 'In the Mood for Love on 35mm', meta: 'Babylon Mitte, Thu 21:00', price: 11, sure: .93, busy: null },
+    { t: 'Hania Rani, two seats', meta: 'Silent Green, Sat 20:00', price: 58, sure: .91, busy: null },
+    { t: 'Museum after dark', meta: 'Neues Museum, Fri 20:00', price: 18, sure: .87, busy: null },
+    { t: 'Science slam', meta: 'Heimathafen Neukölln, Wed 19:30', price: 14, sure: .72, busy: null },
+    { t: 'Nick Cave', meta: 'Uber Arena, Tue 20:00', price: 96, sure: .9, busy: "Dinner at Lea's" },
+    { t: 'Klubnacht', meta: 'Berghain, Sat 23:59', price: 25, sure: .31, busy: null },
+  ];
+  const $ = id => document.getElementById(id);
+  const monthly = $('monthly'), surprise = $('surprise');
+  function decide(x, left, auto) {
+    if (x.busy) return ['skip', `You're busy: ${x.busy}.`];
+    if (x.price > left) return ['skip', `Only €${left} left this month.`];
+    if (x.sure < ASK) return ['skip', "Not much like what you usually go to."];
+    if (x.sure >= AUTO && x.price <= auto) return ['book', `A strong match, and under your €${auto} limit.`];
+    return ['ask', x.price > auto ? `Over your €${auto} limit, so it asks first.` : 'A good match, but not sure enough to book unasked.'];
+  }
+  const label = { book: 'Books it', ask: 'Asks you', skip: 'Skips it' };
+  function render() {
+    if (+surprise.value > +monthly.value) surprise.value = monthly.value;
+    const m = +monthly.value, a = +surprise.value, left = Math.max(0, m - SPENT);
+    $('monthly-out').value = `€${m}`; $('surprise-out').value = `€${a}`; $('left').textContent = `€${left}`;
+    for (const r of [monthly, surprise]) r.style.setProperty('--p', `${(r.value - r.min) / (r.max - r.min) * 100}%`);
+    $('ideas').innerHTML = ideas.map(x => {
+      const [v, why] = decide(x, left, a);
+      return `<li class="is-${v}"><span class="t">${esc(x.t)}</span><span class="meta">${esc(x.meta)}, ${x.price ? '€' + x.price : 'free'}</span><span class="verdict ${v}">${label[v]}</span><span class="why">${esc(why)}</span></li>`;
+    }).join('');
+  }
+  monthly.addEventListener('input', render); surprise.addEventListener('input', render); render();
+</script>
+</body>
+</html>
