@@ -32,17 +32,103 @@ const normTitle = (s: string) =>
 
 const normVenue = (s: string | null) => (s ? s.toLowerCase().split(/[,(]/)[0].replace(/[^a-z0-9]+/g, ' ').trim() : '');
 
-function canonicalUrl(raw: string | null | undefined, pageUrl: string) {
-  if (!raw || !/^https?:\/\//.test(raw)) return pageUrl;
+/** http(s) URL without tracking params and hash; null if it isn't one. */
+export function canonicalOrNull(raw: string | null | undefined): string | null {
+  if (!raw || !/^https?:\/\//i.test(raw)) return null;
   try {
     const u = new URL(raw);
+    // Placeholders the extractor invents when a page has no link.
+    if (/(^|\.)(example\.(com|org|net)|localhost|domain\.com|yourdomain\.com)$/i.test(u.hostname)) return null;
     for (const k of [...u.searchParams.keys()]) if (/^(utm_|fbclid|gclid|ref$)/.test(k)) u.searchParams.delete(k);
     u.hash = '';
     return u.toString();
   } catch {
-    return pageUrl;
+    return null;
   }
 }
+const canonicalUrl = (raw: string | null | undefined, pageUrl: string) => canonicalOrNull(raw) ?? pageUrl;
+
+const STREET = /\b\d{1,5}[a-z]?\s+[\w.' -]*?\b(st|street|ave|avenue|blvd|boulevard|rd|road|way|dr|drive|ln|lane|pl|place|ct|court|sq|square|hwy|highway|pkwy|parkway|ter|terrace|alley|plaza)\b\.?/i;
+
+/**
+ * Venue name only. Older extractions (and some pages) mix in the address: "Cobb's Comedy Club, 915 Columbus Ave".
+ * Returns the name and, if the name was really an address, that address.
+ */
+export function splitVenue(raw: string | null): { name: string | null; address: string | null } {
+  if (!raw) return { name: null, address: null };
+  const parts = raw.split(/\s*[,|•·]\s*|\s+[-–—]\s+(?=\d)/).filter(Boolean);
+  let name = parts[0]?.trim() ?? '';
+  let address: string | null = parts.length > 1 && STREET.test(parts.slice(1).join(', ')) ? parts.slice(1).join(', ') : null;
+  // "Bottom of the Hill (1233 17th St)" → address in brackets
+  const paren = name.match(/\s*\(([^)]*\d[^)]*)\)\s*$/);
+  if (paren && paren.index !== undefined) {
+    address ??= STREET.test(paren[1]) ? paren[1].trim() : null;
+    name = name.slice(0, paren.index).trim();
+  }
+  // "Cobb's Comedy Club 915 Columbus Ave" → name before the street number
+  const m = name.match(STREET);
+  if (m && m.index !== undefined) {
+    address ??= name.slice(m.index).trim();
+    name = name.slice(0, m.index).trim();
+  }
+  return { name: name.length >= 2 ? name : null, address };
+}
+
+/** A street address needs a house number or a street word; "San Francisco, CA" alone is not one. */
+function streetAddress(raw: string | null): string | null {
+  const a = raw?.replace(/\s*\([^)]*\)/g, '').replace(/\s+,/g, ',').trim();
+  if (!a) return null;
+  return /\d/.test(a.split(',')[0]) || STREET.test(a) ? a : null;
+}
+
+/** "San Francisco, CA 94110" → "San Francisco"; "SF" → "San Francisco". */
+function cleanCity(raw: string | null): string | null {
+  if (!raw) return null;
+  const c = raw.split(',')[0].replace(/\b\d{5}(-\d{4})?\b/, '').trim();
+  if (/^(sf|s\.f\.)$/i.test(c)) return 'San Francisco';
+  if (!c || c.length > 40 || /online|virtual|tbd|tba/i.test(c)) return null;
+  return c;
+}
+
+/** "2026-10-20T10:00" (user tz) or a full ISO string → ISO UTC; null if unparseable. */
+function toIso(raw: string | null, tz: string): string | null {
+  if (!raw) return null;
+  const d = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? new Date(raw) : zonedToUtc(raw.length >= 16 ? raw.slice(0, 16) : raw.slice(0, 10), tz);
+  return d && !Number.isNaN(d.getTime()) ? d.toISOString() : null;
+}
+
+/** Ticket shops and RSVP platforms, and paths that are a checkout/ticket page on a venue's own site. */
+const TICKETING =
+  /(^|\.)(eventbrite\.[a-z.]+|dice\.fm|ticketmaster\.[a-z.]+|livenation\.com|axs\.com|etix\.com|seetickets\.[a-z.]+|tixr\.com|ticketweb\.com|universe\.com|lu\.ma|luma\.com|partiful\.com|showclix\.com|eventim\.[a-z.]+|veezi\.com|ticketleap\.com|ticketfly\.com|prekindle\.com|holdmyticket\.com|simpletix\.com|tockify\.com|withfriends\.co|eventive\.org|meetup\.com)$/i;
+const TICKET_PATH = /\/(tickets?|checkout|register|registration|rsvp|buy|purchase|book|booking|sessions?)(\/|$|\?)/i;
+export function looksBookable(u: string): boolean {
+  try {
+    const x = new URL(u);
+    return TICKETING.test(x.hostname) || TICKET_PATH.test(x.pathname);
+  } catch {
+    return false;
+  }
+}
+
+/** Season overviews, calendars, packages and listings: a venue page, not one event's checkout. */
+const GENERIC_PAGE = /\/([\w-]*season[\w-]*|[\w-]*overview|calendar[\w-]*|schedule|whats-?on|upcoming[\w-]*|[\w-]*packages?|events|shows|concerts|films|tickets|programs?)\/?$/i;
+export const isGenericPage = (u: string | null) => {
+  if (!u) return false;
+  try {
+    return GENERIC_PAGE.test(new URL(u).pathname);
+  } catch {
+    return false;
+  }
+};
+
+export const isAggregatorUrl = (u: string | null) => {
+  if (!u) return false;
+  try {
+    return AGGREGATORS.test(new URL(u).hostname + new URL(u).pathname);
+  } catch {
+    return false;
+  }
+};
 
 
 /** Placeholder strings Exa's extractor sometimes writes instead of leaving a field empty. */
@@ -74,7 +160,7 @@ function rank(c: Candidate) {
       return '';
     }
   })();
-  return (c.hasTime ? 8 : 0) + (AGGREGATORS.test(host) ? 0 : 4) + (c.url !== c.pageUrl ? 2 : 0) + (c.priceMinCents !== null ? 1 : 0);
+  return (c.hasTime ? 8 : 0) + (AGGREGATORS.test(host) ? 0 : 4) + (c.url !== c.pageUrl ? 2 : 0) + (c.priceMinCents !== null ? 1 : 0) + (c.bookingUrl ? 1 : 0);
 }
 
 /**
@@ -83,7 +169,10 @@ function rank(c: Candidate) {
  */
 export function toCandidates(pages: PageEvents[], ctx: DiscoveryContext): Candidate[] {
   const all: Candidate[] = [];
+  const cityFromPage = new WeakSet<Candidate>();
+  const now = new Date().toISOString();
   for (const page of pages) {
+    const checkedAt = page.extractedAt ?? now;
     // Articles and season overviews: the extractor stamps undated items with today's date (sometimes even a time).
     // Real calendars span several days, so a page whose 3+ events all fall on today is not trusted.
     const today = utcToLocal(new Date(), ctx.timezone).slice(0, 10);
@@ -104,9 +193,11 @@ export function toCandidates(pages: PageEvents[], ctx: DiscoveryContext): Candid
 
       const title = clean(e.title);
       if (!title) continue;
-      const venue = clean(e.venueName) ?? clean(e.venue)?.split(',')[0].trim() ?? null;
-      const address = clean(e.address);
-      const bookingUrl = clean(e.bookingUrl);
+      const split = splitVenue(clean(e.venueName) ?? clean(e.venue));
+      const venue = split.name;
+      const address = streetAddress(clean(e.address)) ?? split.address;
+      const city = cleanCity(clean(e.city));
+      const status = normaliseStatus(e.status);
       const priceText = clean(e.price);
       const { cents, currency } = parsePrice(priceText);
       const startLocal = hasTime ? utcToLocal(startsAt, ctx.timezone) : local.slice(0, 10);
@@ -120,12 +211,18 @@ export function toCandidates(pages: PageEvents[], ctx: DiscoveryContext): Candid
         hasTime,
         venue,
         address,
-        city: clean(e.city) ?? ctx.city,
+        city: city ?? ctx.city,
         online: e.online === true,
         url: canonicalUrl(clean(e.url), page.pageUrl),
-        bookingUrl: bookingUrl && /^https?:\/\//.test(bookingUrl) ? canonicalUrl(bookingUrl, page.pageUrl) : null,
-        status: normaliseStatus(e.status),
-        statusCheckedAt: new Date().toISOString(),
+        // The extractor rarely sees "Buy" buttons; an event link that is itself a ticket/RSVP page will do.
+        // Resellers' and season/calendar pages are no booking link for this event.
+        bookingUrl: [canonicalOrNull(clean(e.bookingUrl))].find(b => b && !isAggregatorUrl(b) && !isGenericPage(b)) ?? (() => {
+          const u = canonicalOrNull(clean(e.url)) ?? page.pageUrl;
+          return looksBookable(u) && !isAggregatorUrl(u) ? u : null;
+        })(),
+        status,
+        statusCheckedAt: checkedAt,
+        onSaleAt: toIso(clean(e.onSaleAt), ctx.timezone),
         pageUrl: page.pageUrl,
         pageKind: page.pageKind,
         priceText: cents === null && priceText && !/\d/.test(priceText) ? null : priceText,
@@ -137,6 +234,7 @@ export function toCandidates(pages: PageEvents[], ctx: DiscoveryContext): Candid
         tags,
         attrs: deriveAttributes({ startsAt, hasTime, priceMinCents: cents, title, tags }, ctx.timezone),
       });
+      if (city) cityFromPage.add(all[all.length - 1]);
     }
   }
 
@@ -149,9 +247,18 @@ export function toCandidates(pages: PageEvents[], ctx: DiscoveryContext): Candid
     else {
       twin.venue ??= c.venue;
       twin.address ??= c.address;
-      // A venue's own ticket link beats an aggregator's; any stated status beats "unknown".
-      if (!twin.bookingUrl || (AGGREGATORS.test(twin.bookingUrl) && c.bookingUrl && !AGGREGATORS.test(c.bookingUrl))) twin.bookingUrl = c.bookingUrl ?? twin.bookingUrl;
-      if (twin.status === 'unknown') twin.status = c.status;
+      if (!cityFromPage.has(twin) && cityFromPage.has(c)) {
+        twin.city = c.city;
+        cityFromPage.add(twin);
+      }
+      twin.online ||= c.online;
+      // A venue's own ticket link beats an aggregator's/reseller's; any stated status beats "unknown".
+      if (c.bookingUrl && (!twin.bookingUrl || (isAggregatorUrl(twin.bookingUrl) && !isAggregatorUrl(c.bookingUrl)))) twin.bookingUrl = c.bookingUrl;
+      if (twin.status === 'unknown' && c.status !== 'unknown') {
+        twin.status = c.status;
+        twin.statusCheckedAt = c.statusCheckedAt;
+      }
+      twin.onSaleAt ??= c.onSaleAt;
       twin.tags = [...new Set([...twin.tags, ...c.tags])].slice(0, 6);
       if (twin.category === 'other') twin.category = c.category;
       if (twin.priceMinCents === null && c.priceMinCents !== null) {

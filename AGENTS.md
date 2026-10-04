@@ -17,3 +17,11 @@ URL, not localhost), and put it in your reply. Screenshots are welcome on top of
   ```
 
 Quick tunnel URLs change every time cloudflared restarts, so post the new URL whenever you restart one.
+
+## Parallel work: use a worktree
+
+Several sessions edit the main checkout at once. For anything bigger than a small fix, work in your own worktree via the
+`worktrees` plugin (`plugins/worktrees`; tools `create_worktree`, `list_worktrees`, `set_worktree_phone`, …). Each one gets
+branch `wt/<name>`, its own Neon branch, port (4112+) and tunnel. To test real WhatsApp, route your phone to it with
+`set_worktree_phone`; production forwards that number's messages there. Worktrees can only message their allowlisted phone.
+Deploy (`npm run deploy:neon`) only from the main checkout.

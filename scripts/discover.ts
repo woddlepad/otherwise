@@ -7,10 +7,10 @@
 import 'dotenv/config';
 import { readFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
-import { defaultWindow, discover, finalizePicks, findCandidates } from '../src/lib/events/discover';
+import { defaultWindow, discover, dropUnreachable, finalizePicks, findCandidates } from '../src/lib/events/discover';
 import { scoreEvents } from '../src/lib/events/score';
 import { formatLocal } from '../src/lib/events/time';
-import type { DiscoveryContext, ScoredEvent, StoredEvent } from '../src/lib/events/types';
+import type { Candidate, DiscoveryContext, ScoredEvent, StoredEvent } from '../src/lib/events/types';
 
 const { values: args } = parseArgs({
   options: {
@@ -33,11 +33,30 @@ function print(events: ScoredEvent[], tz: string) {
     const when = e.hasTime ? formatLocal(e.startsAt, tz) : `${formatLocal(e.startsAt, tz, false)} (time?)`;
     console.log(
       `${e.confidence.toFixed(2)} ${e.decision.action.padEnd(4)} ${when.padEnd(18)} ${e.title.slice(0, 60)}` +
-        `\n     @ ${e.venue ?? '?'} · ${e.priceText ?? 'price ?'} · ${e.url}\n     ${e.reason} [${e.decision.reason}]` +
+        `\n     @ ${[e.venue ?? '?', e.address, e.city].filter(Boolean).join(' · ')}${e.online ? ' (online)' : ''} · ${e.priceText ?? 'price ?'}` +
+        `${e.distanceKm !== null ? ` · ${e.distanceKm} km` : ''}\n     status ${e.status}${e.onSaleAt ? ` (on sale ${e.onSaleAt})` : ''} (checked ${formatLocal(new Date(e.statusCheckedAt), tz)}) · ` +
+        `book ${e.bookingUrl ?? '-'}\n     url ${e.url}\n     ${e.reason} [${e.decision.reason}]` +
         `\n     ${e.category} [${e.tags.join(', ')}] ${e.attrs.timeOfDay}${e.attrs.weekend ? ' weekend' : ''} ${e.attrs.priceBand} · matches: ${e.matches?.join(', ') || '-'}` +
-        (e.cancellation ? `\n     ↩ ${e.cancellation.summary}${e.cancellation.quote ? ` — "${e.cancellation.quote.slice(0, 120)}"` : ''}` : ''),
+        (e.cancellation
+          ? `\n     ↩ ${e.cancellation.summary} [method ${e.cancellation.method}${e.cancellation.contact ? ` ${e.cancellation.contact}` : ''}` +
+            `, transferable ${e.cancellation.transferable ?? '?'}]${e.cancellation.quote ? ` — "${e.cancellation.quote.slice(0, 120)}"` : ''}` +
+            `\n       scope ${e.cancellation.scope} · source ${e.cancellation.source}${e.cancellation.platform ? ` · platform ${e.cancellation.platform}` : ''}` +
+            ` · cancelBy ${e.cancellation.cancelBy ?? '-'} · cancelUrl ${e.cancellation.cancellationUrl ?? '-'} · policyUrl ${e.cancellation.policyUrl ?? '-'}`
+          : ''),
     );
   }
+}
+
+/** How much of the v3 extraction came through. */
+function coverage(cands: Candidate[], city: string) {
+  const pct = (f: (c: Candidate) => boolean) => `${Math.round((100 * cands.filter(f).length) / Math.max(1, cands.length))}%`;
+  const statuses = new Map<string, number>();
+  for (const c of cands) statuses.set(c.status, (statuses.get(c.status) ?? 0) + 1);
+  return (
+    `v3 fields: bookingUrl ${pct(c => !!c.bookingUrl)} · status≠unknown ${pct(c => c.status !== 'unknown')} · ` +
+    `address ${pct(c => !!c.address)} · city≠${city} ${pct(c => c.city.toLowerCase() !== city.toLowerCase())} · online ${pct(c => c.online)}` +
+    `\nstatuses: ${[...statuses].map(([k, v]) => `${k} ${v}`).join(' · ')}`
+  );
 }
 
 const t0 = Date.now();
@@ -46,8 +65,14 @@ if (args.user) {
   const user = await upsertUserByPhone(args.user);
   const res = await discover(user.id, { trigger: 'manual', hint: args.hint, window: defaultWindow(Number(args.days)) });
   console.log(`queries:\n${res.queries.map(q => `  - ${q.query}`).join('\n')}`);
-  console.log(`${res.candidates.length} candidates, ${res.events.length} kept, $${res.costDollars.toFixed(3)}, ${Date.now() - t0} ms\n`);
+  console.log(`${res.candidates.length} candidates, ${res.events.length} kept, $${res.costDollars.toFixed(3)}, ${Date.now() - t0} ms`);
+  const { rows: [u] } = await db.query(`SELECT city FROM users WHERE id = $1`, [user.id]);
+  console.log(`${coverage(res.candidates, u?.city || process.env.DEFAULT_CITY || 'San Francisco')}\n`);
   print(res.events, process.env.DEFAULT_TIMEZONE || 'America/Los_Angeles');
+  const { getBookingHandoff } = await import('../src/lib/events/handoff');
+  for (const e of res.events.slice(0, 3)) {
+    console.log(`\nhandoff #${res.events.indexOf(e) + 1}:\n${JSON.stringify(await getBookingHandoff(user.id, e.id), null, 2)}`);
+  }
   await db.end();
 } else {
   const fx = JSON.parse(await readFile(args.fixture!, 'utf8'));
@@ -73,8 +98,11 @@ if (args.user) {
   const byCat = [...counts].map(([k, v]) => `${k} ${v}`);
   console.log(`categories: ${byCat.join(' · ')}`);
   console.log(`${found.candidates.length} candidates in window, $${found.costDollars.toFixed(3)}, ${tFound} ms`);
+  console.log(coverage(found.candidates, ctx.city));
 
-  const pseudo: StoredEvent[] = found.candidates.map((c, i) => ({ ...c, id: `c${i}` }));
+  const all: StoredEvent[] = found.candidates.map((c, i) => ({ ...c, id: `c${i}`, venueId: null, venueLat: null, venueLng: null, distanceKm: null }));
+  const pseudo = dropUnreachable(all);
+  if (pseudo.length < all.length) console.log(`dropped ${all.length - pseudo.length} sold out / cancelled / postponed`);
   const scored = await finalizePicks(await scoreEvents(pseudo, ctx, null), ctx.timezone, 8).catch(async err => {
     console.warn('finalizePicks needs the DB for the policy cache:', String(err).slice(0, 120));
     return scoreEvents(pseudo, ctx, null);

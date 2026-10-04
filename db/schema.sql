@@ -221,3 +221,50 @@ CREATE TABLE IF NOT EXISTS dev_routes (
   expires_at  timestamptz NOT NULL,
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
+
+-- Event schema v3 (src/lib/events: venues.ts, geocode.ts, store.ts): one row per venue, merged by normalised name
+-- per city ("Cobb's Comedy Club" = "Cobbs Comedy Club"), geocoded once with OpenStreetMap Nominatim.
+CREATE TABLE IF NOT EXISTS venues (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            text NOT NULL,
+  norm_name       text NOT NULL,                      -- venues.ts normVenueName()
+  address         text,
+  city            text,
+  domain          text,                               -- venue's own site / ticket shop host (not aggregators)
+  lat             double precision,
+  lng             double precision,
+  geocoded_at     timestamptz,                        -- set on hit and miss, so misses aren't retried every run
+  geocode_source  text,                               -- 'nominatim' | 'nominatim:none'
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS venues_norm_city ON venues (norm_name, lower(coalesce(city, '')));
+
+ALTER TABLE events ADD COLUMN IF NOT EXISTS address           text;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS online            boolean NOT NULL DEFAULT false;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS booking_url       text;            -- direct Buy tickets / Register / RSVP link
+ALTER TABLE events ADD COLUMN IF NOT EXISTS status            text NOT NULL DEFAULT 'unknown';  -- classify.ts STATUSES
+ALTER TABLE events ADD COLUMN IF NOT EXISTS status_checked_at timestamptz;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS on_sale_at        timestamptz;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS venue_id          uuid REFERENCES venues(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS events_venue ON events (venue_id);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS home_lat      double precision;  -- geocoded taste homeArea + city
+ALTER TABLE users ADD COLUMN IF NOT EXISTS home_lng      double precision;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS max_travel_km real;              -- optional distance filter; null = none
+
+-- Event schema v3 part B (src/lib/events: cancellation.ts, status.ts, handoff.ts): how a booking can be cancelled,
+-- and whether tickets can be passed on. Missing method = 'unknown' (blocks booking unasked).
+ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS method       text;     -- online_self_service | email | phone | box_office | not_possible | unknown
+ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS contact      text;     -- URL / email / phone for cancelling
+ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS transferable boolean;  -- tickets may be given to someone else
+
+-- Per-event cancellation (src/lib/events: status.ts, cancellation.ts, platforms.ts; PLAN §9): the policy that applies to
+-- THIS event (event page > venue policy > ticket-platform default), with a cancel/manage link. Full object stays in
+-- details.cancellation; these columns are for queries and the 24 h reuse check.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_kind       text;         -- PolicyKind
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_scope      text;         -- event | venue | platform | none
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_source     text;         -- event_page | venue_policy | platform_default | confirmation_email | none
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_url        text;         -- verified cancel/manage-order link (or the platform's order page)
+ALTER TABLE events ADD COLUMN IF NOT EXISTS policy_url              text;         -- page stating the policy
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancel_by               timestamptz;  -- last moment to cancel under the policy
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_checked_at timestamptz;

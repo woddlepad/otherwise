@@ -97,12 +97,16 @@ export function WorktreesApp() {
   const worktrees = list.data?.worktrees ?? []
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-4 p-4 sm:p-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className="text-lg font-medium">{t.title}</h1>
           <p className="text-muted-foreground text-sm">{t.subtitle}</p>
         </div>
-        {!showCreate && worktrees.length > 0 && <Button onClick={() => setShowCreate(true)}>{t.newWorktree}</Button>}
+        {!showCreate && worktrees.length > 0 && (
+          <Button className="shrink-0" onClick={() => setShowCreate(true)}>
+            {t.newWorktree}
+          </Button>
+        )}
       </header>
 
       <div role="status" aria-live="polite">
@@ -325,6 +329,7 @@ function WorktreeCard(props: { app: App | null; worktree: Worktree; onDone: (lin
                 autoFocus
                 type="tel"
                 pattern="\+[1-9][0-9]{6,14}"
+                placeholder="+4915112345678"
                 className="h-8 w-44"
                 value={draft}
                 onChange={(e) => setDraft(e.target.value.replace(/\s/g, ''))}

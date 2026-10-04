@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "worktrees": {
+      "command": "node",
+      "args": ["plugins/worktrees/dist/server.mjs"],
+      "env": {
+        "BOOKING_REPO": "/home/atmos/booking-agent",
+        "NEON_PROJECT_ID": "withered-thunder-13037252",
+        "NEON_PARENT_BRANCH": "production"
+      }
+    }
+  }
+}

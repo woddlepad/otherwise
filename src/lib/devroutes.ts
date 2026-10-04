@@ -11,14 +11,19 @@ export type DevRoute = { worktree: string; targetUrl: string };
 
 /** Only production routes (WHATSAPP_ROUTER=1); a lookup failure must never break the prod webhook. */
 export async function findDevRoute(phone: string): Promise<DevRoute | null> {
+  if (process.env.WHATSAPP_ROUTER === '1' && !process.env.DEV_FORWARD_SECRET) {
+    console.error('[devroutes] WHATSAPP_ROUTER=1 but DEV_FORWARD_SECRET is not set');
+  }
   if (process.env.WHATSAPP_ROUTER !== '1' || !process.env.DEV_FORWARD_SECRET) return null;
   try {
     const { rows } = await db.query<DevRoute>(
       `SELECT worktree, target_url AS "targetUrl" FROM dev_routes WHERE phone = $1 AND expires_at > now()`,
       [phone],
     );
+    console.log('[devroutes] lookup', { phone, found: rows[0]?.worktree ?? null });
     return rows[0] ?? null;
-  } catch {
+  } catch (err) {
+    console.error('[devroutes] route lookup failed', { phone, err: String(err) });
     return null;
   }
 }
