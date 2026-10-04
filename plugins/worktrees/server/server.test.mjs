@@ -83,7 +83,10 @@ test('exposes the worktree tools with typed schemas', async (t) => {
   const mcp = await connect(t)
   const { tools } = await mcp.request('tools/list')
   const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]))
-  for (const name of ['list_worktrees', 'create_worktree', 'remove_worktree', 'set_worktree_phone', 'start_worktree', 'stop_worktree', 'open_worktrees']) {
+  for (const name of [
+    'list_worktrees', 'create_worktree', 'remove_worktree', 'set_worktree_phone', 'start_worktree', 'stop_worktree', 'open_worktrees',
+    'chat_send', 'chat_messages', 'chat_onboard', 'chat_reset',
+  ]) {
     assert.ok(byName[name], name + ' is listed')
     assert.equal(byName[name].inputSchema.type, 'object')
   }
@@ -91,6 +94,9 @@ test('exposes the worktree tools with typed schemas', async (t) => {
   assert.equal(byName.remove_worktree.annotations.destructiveHint, true)
   assert.equal(byName.list_worktrees.annotations.readOnlyHint, true)
   assert.ok(byName.list_worktrees.outputSchema.properties.worktrees)
+  assert.deepEqual(byName.chat_send.inputSchema.required.sort(), ['name', 'phone', 'text'])
+  assert.equal(byName.chat_reset.annotations.destructiveHint, true)
+  assert.equal(byName.chat_messages.annotations.readOnlyHint, true)
 })
 
 test('lists an empty registry through the tool and the resource', async (t) => {
@@ -117,6 +123,10 @@ test('reports unknown worktrees as errors', async (t) => {
     ['set_worktree_phone', { name: 'ghost', phone: '+4915112345678' }],
     ['start_worktree', { name: 'ghost' }],
     ['stop_worktree', { name: 'ghost' }],
+    ['chat_send', { name: 'ghost', phone: '+15550100001', text: 'hi' }],
+    ['chat_messages', { name: 'ghost', phone: '+15550100001' }],
+    ['chat_reset', { name: 'ghost', phone: '+15550100001' }],
+    ['chat_onboard', { name: 'ghost', phone: '+15550100001', city: 'Berlin', interests: [], monthlyBudgetEur: 100, autoApproveEur: 20 }],
   ]) {
     const result = await mcp.request('tools/call', { name, arguments: args }).catch((err) => ({ isError: true, content: [{ text: err.message }] }))
     assert.equal(result.isError, true, name + ' fails')

@@ -9,7 +9,7 @@ import { billingCheckout, billingRedeem, billingSuccess, devCredits, stripeWebho
 import { connectStart, onboardComplete, onboardPage } from './routes/onboarding';
 import { cronDiscover, devDiscover } from './routes/discover';
 import { eventHandoff } from './routes/handoff';
-import { devChat, whatsappWebhook } from './routes/whatsapp';
+import { devChat, devOutbox, devResetUser, whatsappWebhook } from './routes/whatsapp';
 import { discoverEvents } from './workflows/discover';
 import { onboardUser } from './workflows/onboard';
 
@@ -25,6 +25,8 @@ export const mastra = new Mastra({
     apiRoutes: [
       whatsappWebhook,
       devChat,
+      devOutbox,
+      devResetUser,
       onboardPage,
       connectStart,
       onboardComplete,

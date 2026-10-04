@@ -257,3 +257,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS max_travel_km real;              -- o
 ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS method       text;     -- online_self_service | email | phone | box_office | not_possible | unknown
 ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS contact      text;     -- URL / email / phone for cancelling
 ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS transferable boolean;  -- tickets may be given to someone else
+
+-- Every outgoing WhatsApp message with what happened to it (src/lib/whatsapp.ts), one row per send (not per chunk).
+-- Dev worktrees never reach Twilio for test numbers, so this is how the chat tools (plugins/worktrees) read replies.
+CREATE TABLE IF NOT EXISTS outbound_messages (
+  id          bigserial PRIMARY KEY,
+  phone       text NOT NULL,                          -- E.164
+  body        text NOT NULL,
+  media_url   text,
+  status      text NOT NULL,                          -- sent | dry_run | not_allowlisted | failed
+  error       text,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS outbound_messages_phone ON outbound_messages (phone, created_at);
