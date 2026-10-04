@@ -32,7 +32,7 @@ export type MockEvent = {
   tags: string[];
   venue: string;
   address: string;
-  dayOffset: number;           // days from today (Berlin)
+  weekday: number;             // 0 = Sunday: the show runs weekly, next date is always within 7 days
   times: string[];             // local showtimes, "HH:MM"
   ticketTypes: TicketType[];   // first = standard, its price is the listed one
   feeCents?: number;           // per ticket, fees-at-checkout only
@@ -56,7 +56,7 @@ export const CATALOGUE: MockEvent[] = [
     tags: ['jazz', 'trio', 'small venue'],
     venue: 'Kellerklang',
     address: 'Weserstraße 58, 12045 Berlin',
-    dayOffset: 2,
+    weekday: 2,
     times: ['21:00'],
     ticketTypes: types(1400, 1000),
     variant: 'paid',
@@ -69,7 +69,7 @@ export const CATALOGUE: MockEvent[] = [
     tags: ['indie', 'arthouse', 'q&a'],
     venue: 'Kino Lichtspalt',
     address: 'Lausitzer Platz 13, 10997 Berlin',
-    dayOffset: 3,
+    weekday: 3,
     times: ['18:30', '21:00'],
     ticketTypes: types(1750, 1300),
     feeCents: 390,
@@ -83,7 +83,7 @@ export const CATALOGUE: MockEvent[] = [
     tags: ['jazz', 'big band'],
     venue: 'Saal Neukölln',
     address: 'Karl-Marx-Straße 141, 12043 Berlin',
-    dayOffset: 4,
+    weekday: 4,
     times: ['20:00'],
     ticketTypes: types(2600, 1900),
     variant: 'paid',
@@ -96,7 +96,7 @@ export const CATALOGUE: MockEvent[] = [
     tags: ['indie', 'preview', 'film club'],
     venue: 'Kino Lichtspalt',
     address: 'Lausitzer Platz 13, 10997 Berlin',
-    dayOffset: 5,
+    weekday: 5,
     times: ['20:15'],
     ticketTypes: types(900),
     variant: 'login-required',
@@ -109,7 +109,7 @@ export const CATALOGUE: MockEvent[] = [
     tags: ['indie', 'shorts', 'meetup'],
     venue: 'Werkstatt Wedding',
     address: 'Gerichtstraße 23, 13347 Berlin',
-    dayOffset: 6,
+    weekday: 6,
     times: ['19:30'],
     ticketTypes: types(0),
     variant: 'free-rsvp',
@@ -122,7 +122,7 @@ export const CATALOGUE: MockEvent[] = [
     tags: ['urbanism', 'talk'],
     venue: 'Haus der Ideen',
     address: 'Linienstraße 40, 10119 Berlin',
-    dayOffset: 7,
+    weekday: 0,
     times: ['19:00'],
     ticketTypes: types(800, 500),
     variant: 'paid',
@@ -133,11 +133,18 @@ export const findMockEvent = (slug: string) => CATALOGUE.find(e => e.slug === sl
 export const isFree = (e: MockEvent) => e.variant === 'free-rsvp';
 export const standardPrice = (e: MockEvent) => e.ticketTypes[0].priceCents;
 
-/** Local "YYYY-MM-DDTHH:MM" showtimes, `dayOffset` days after today in Berlin (stable for the whole day). */
+/**
+ * Local "YYYY-MM-DDTHH:MM" showtimes on the event's next weekday (Berlin) whose last show hasn't started yet. Weekly
+ * rather than "N days from today", so a date found in discovery stays bookable across midnight until the show is over.
+ */
 export function showtimes(e: MockEvent, now = new Date()): string[] {
   const today = utcToLocal(now, SHOP_TZ).slice(0, 10);
-  const day = new Date(Date.parse(`${today}T12:00:00Z`) + e.dayOffset * 86_400_000).toISOString().slice(0, 10);
-  return e.times.map(t => `${day}T${t}`);
+  const noon = Date.parse(`${today}T12:00:00Z`);
+  for (let add = (e.weekday - new Date(noon).getUTCDay() + 7) % 7; ; add += 7) {
+    const day = new Date(noon + add * 86_400_000).toISOString().slice(0, 10);
+    const last = zonedToUtc(`${day}T${e.times.at(-1)}`, SHOP_TZ);
+    if (last && last > now) return e.times.map(t => `${day}T${t}`);
+  }
 }
 
 export const eventUrl = (slug: string) => publicUrl(`${SHOP_PATH}/e/${slug}`);

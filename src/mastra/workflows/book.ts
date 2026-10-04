@@ -57,11 +57,12 @@ async function failBooking(mastra: Mastra, bookingId: string, err: unknown) {
   await updateBooking(bookingId, { status: 'failed', error: e.message.slice(0, 500), suspended_step: null });
   if (b.holdRef && !e.opts.keepHold) await releaseHold(b.holdRef).catch(() => {});
   await closeBrowser(browserName(b.userId)).catch(() => {});
+  const why = e.message.replace(/[.\s]+$/, '');
   const text =
     e.opts.userMessage ??
     (e.opts.keepHold
-      ? `⚠️ Something went wrong right after paying for ${label(b)}: ${e.message}. I'm keeping the credits reserved until it's checked.`
-      : `😕 I couldn't book ${label(b)}: ${e.message}. Nothing was charged.`);
+      ? `⚠️ Something went wrong right after paying for ${label(b)}: ${why}. I'm keeping the credits reserved until it's checked.`
+      : `😕 I couldn't book ${label(b)}: ${why}. Nothing was charged.`);
   await tellUser(mastra, b.userId, text, `booking ${b.id} failed`).catch(() => {});
 }
 
