@@ -268,3 +268,24 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_url        text;       
 ALTER TABLE events ADD COLUMN IF NOT EXISTS policy_url              text;         -- page stating the policy
 ALTER TABLE events ADD COLUMN IF NOT EXISTS cancel_by               timestamptz;  -- last moment to cancel under the policy
 ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_checked_at timestamptz;
+
+-- Onboarding v2 starter deck (src/lib/events/starter.ts, docs/onboarding/PLAN.md): real upcoming events in the user's
+-- city to swipe during setup. Swipes are taste signals for the onboarding analysis, not booking decisions.
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS source     text NOT NULL DEFAULT 'discovery';  -- discovery | starter
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS reaction   text CHECK (reaction IN ('like','dislike'));
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS reacted_at timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS starter_city text;   -- city_key the starter suggestions were seeded for
+
+-- One deck per city, shared by all users there; the status row doubles as the build lock.
+CREATE TABLE IF NOT EXISTS starter_decks (
+  city_key    text PRIMARY KEY,                       -- lower-case, single-spaced city name
+  city        text NOT NULL,
+  status      text NOT NULL CHECK (status IN ('building','ready','failed')),
+  started_at  timestamptz NOT NULL DEFAULT now(),     -- a 'building' row older than 10 min counts as failed
+  built_at    timestamptz,
+  event_ids   uuid[] NOT NULL DEFAULT '{}',           -- the city's pool, best first; each user gets ~12 of them
+  cost_dollars real
+);
+
+-- Representative page image (og:image) from Exa, for event cards.
+ALTER TABLE exa_page_cache ADD COLUMN IF NOT EXISTS image text;

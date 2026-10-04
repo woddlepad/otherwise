@@ -57,13 +57,13 @@ export async function getCachedPages(urls: string[], fromDay: string, toDay: str
   if (off() || !urls.length) return new Map();
   try {
     const { rows } = await db.query(
-      `SELECT url, title, page_kind, events, created_at FROM exa_page_cache
+      `SELECT url, title, page_kind, events, image, created_at FROM exa_page_cache
        WHERE url = ANY($1) AND window_from <= $2::date AND window_to >= $3::date
          AND created_at > now() - make_interval(hours => CASE WHEN jsonb_array_length(events) = 0 THEN $6::int ELSE $4::int END)
          AND schema_version = $5`,
       [urls, fromDay, toDay, PAGE_HOURS, PAGE_SCHEMA_VERSION, Math.min(EMPTY_PAGE_HOURS, PAGE_HOURS)],
     );
-    return new Map(rows.map(r => [r.url, { pageUrl: r.url, pageTitle: r.title, pageKind: r.page_kind, events: r.events, extractedAt: new Date(r.created_at).toISOString() }]));
+    return new Map(rows.map(r => [r.url, { pageUrl: r.url, pageTitle: r.title, pageKind: r.page_kind, events: r.events, image: r.image, extractedAt: new Date(r.created_at).toISOString() }]));
   } catch {
     return new Map();
   }
@@ -74,11 +74,11 @@ export async function putCachedPages(pages: PageEvents[], fromDay: string, toDay
   for (const p of pages) {
     await db
       .query(
-        `INSERT INTO exa_page_cache (url, title, page_kind, events, window_from, window_to, schema_version, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+        `INSERT INTO exa_page_cache (url, title, page_kind, events, window_from, window_to, schema_version, image, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
          ON CONFLICT (url) DO UPDATE SET title = $2, page_kind = $3, events = $4, window_from = $5, window_to = $6,
-           schema_version = $7, created_at = now()`,
-        [p.pageUrl, p.pageTitle, p.pageKind, JSON.stringify(p.events), fromDay, toDay, PAGE_SCHEMA_VERSION],
+           schema_version = $7, image = $8, created_at = now()`,
+        [p.pageUrl, p.pageTitle, p.pageKind, JSON.stringify(p.events), fromDay, toDay, PAGE_SCHEMA_VERSION, p.image ?? null],
       )
       .catch(() => {});
   }

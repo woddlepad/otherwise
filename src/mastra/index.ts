@@ -5,7 +5,9 @@ import { PostgresStore } from '@mastra/pg';
 import { analyst } from './agents/analyst';
 import { concierge } from './agents/concierge';
 import { scout } from './agents/scout';
+import { assetFile } from './routes/assets';
 import { billingCheckout, billingRedeem, billingSuccess, devCredits, stripeWebhook, walletPage } from './routes/billing';
+import { onboardDeck, onboardProfile, onboardSwipe } from './routes/deck';
 import { connectStart, onboardComplete, onboardPage } from './routes/onboarding';
 import { cronDiscover, devDiscover } from './routes/discover';
 import { eventHandoff } from './routes/handoff';
@@ -28,6 +30,9 @@ export const mastra = new Mastra({
       onboardPage,
       connectStart,
       onboardComplete,
+      onboardDeck,
+      onboardSwipe,
+      onboardProfile,
       walletPage,
       billingCheckout,
       billingSuccess,
@@ -37,6 +42,7 @@ export const mastra = new Mastra({
       cronDiscover,
       devDiscover,
       eventHandoff,
+      assetFile,
       registerApiRoute('/health', {
         method: 'GET',
         requiresAuth: false,

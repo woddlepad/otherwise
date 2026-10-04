@@ -20,9 +20,10 @@ import {
 } from '../../lib/credits';
 import { db, upsertUserByPhone } from '../../lib/db';
 import { sendWhatsApp } from '../../lib/whatsapp';
-import { esc, page } from './onboarding';
+import { renderExpired } from '../../ui/onboard';
+import { messagePage } from '../../ui/shell';
+import { eur, renderWallet } from '../../ui/wallet';
 
-const eur = (cents: number) => `€${(cents / 100).toFixed(2)}`;
 const KIND_LABEL: Record<string, string> = {
   topup: 'Top-up',
   promo: 'Discount code',
@@ -33,7 +34,10 @@ const KIND_LABEL: Record<string, string> = {
 
 async function userByToken(token: string | undefined) {
   if (!token) return null;
-  const { rows } = await db.query<{ id: string; name: string | null }>(`SELECT id, name FROM users WHERE onboarding_token = $1`, [token]);
+  const { rows } = await db.query<{ id: string; name: string | null; onboarding_status: string }>(
+    `SELECT id, name, onboarding_status FROM users WHERE onboarding_token = $1`,
+    [token],
+  );
   return rows[0] ?? null;
 }
 
@@ -56,51 +60,22 @@ export const walletPage = registerApiRoute('/wallet', {
   handler: async c => {
     const token = c.req.query('t');
     const user = await userByToken(token);
-    if (!user) return c.html(page('<h1>Link expired</h1><p>Send me any message on WhatsApp and I\'ll send a fresh one.</p>'), 404);
+    if (!user) return c.html(renderExpired(), 404);
     const credits = await getCredits(user.id);
     const history = await creditHistory(user.id);
-    const msg = c.req.query('msg');
-    const t = `<input type="hidden" name="t" value="${esc(token)}">`;
-
     return c.html(
-      page(`
-<h1>Credits</h1>
-<p>I pay for tickets from these. If an event gets cancelled, the money comes back here.</p>
-${msg ? `<p style="color:${c.req.query('ok') === '1' ? '#2a8' : '#c33'}">${esc(msg)}</p>` : ''}
-<section>
-  <div style="font-size:40px;font-weight:600;line-height:1.1">${eur(credits.availableCents)}</div>
-  <p class="small">${credits.heldCents ? `${eur(credits.heldCents)} reserved for a booking in progress` : 'available'}</p>
-</section>
-<section><h2>Top up</h2>
-  <div class="row">${TOPUP_PACKS_CENTS.map(
-    a => `<form method="post" action="/billing/checkout" style="flex:1;margin:0">${t}<input type="hidden" name="amount" value="${a / 100}"><button style="width:100%">${eur(a).replace('.00', '')}</button></form>`,
-  ).join('')}</div>
-  <form method="post" action="/billing/checkout" class="two" style="margin-top:10px">${t}
-    <input name="amount" type="number" min="${MIN_TOPUP_CENTS / 100}" max="${MAX_TOPUP_CENTS / 100}" step="1" placeholder="Other amount (€)" required>
-    <button>Top up</button>
-  </form>
-  <p class="small" style="margin-top:8px">Card payment through Stripe. Test mode: use 4242 4242 4242 4242, any future date, any CVC.</p>
-</section>
-<section><h2>Discount code</h2>
-  <form method="post" action="/billing/redeem" class="two">${t}
-    <input name="code" required placeholder="CODE" autocapitalize="characters"><button>Redeem</button>
-  </form>
-</section>
-<section><h2>History</h2>
-  ${
-    history.length
-      ? history
-          .map(
-            h => `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)">
-  <span>${esc(KIND_LABEL[h.kind] ?? h.kind)}${h.note && h.note !== KIND_LABEL[h.kind] ? ` <span class="small">· ${esc(h.note)}</span>` : ''}<br>
-  <span class="small">${h.created_at.toISOString().slice(0, 16).replace('T', ' ')}</span></span>
-  <span style="color:${h.amount_cents > 0 ? '#2a8' : 'inherit'}">${h.amount_cents > 0 ? '+' : '−'}${eur(Math.abs(h.amount_cents))}</span></div>`,
-          )
-          .join('')
-      : '<p class="small">Nothing yet.</p>'
-  }
-</section>
-<p class="small"><a href="/onboard?t=${esc(token)}" style="color:inherit">Settings</a></p>`),
+      renderWallet({
+        token: token!,
+        ready: user.onboarding_status === 'ready',
+        availableCents: credits.availableCents,
+        heldCents: credits.heldCents,
+        packsCents: TOPUP_PACKS_CENTS,
+        minTopUpCents: MIN_TOPUP_CENTS,
+        maxTopUpCents: MAX_TOPUP_CENTS,
+        msg: c.req.query('msg'),
+        ok: c.req.query('ok') === '1',
+        history: history.map(h => ({ label: KIND_LABEL[h.kind] ?? h.kind, note: h.note, amountCents: h.amount_cents, at: h.created_at })),
+      }),
     );
   },
 });
@@ -133,7 +108,7 @@ export const billingSuccess = registerApiRoute('/billing/success', {
     if (r.status === 'other-instance') return c.text('this payment belongs to another instance', 404);
     const { rows } = await db.query(`SELECT onboarding_token FROM users WHERE id = $1`, [r.userId]);
     const token = rows[0]?.onboarding_token;
-    if (!token) return c.html(page('<h1>Thanks ✓</h1><p>Your credits are on their way. You can close this tab.</p>'));
+    if (!token) return c.html(messagePage({ title: 'Thanks, Otherwise', heading: 'Thanks.', text: '<p>Your credits are on their way. You can close this tab.</p>' }));
     const msg = r.status === 'unpaid' ? 'Payment is still processing, your credits appear once it clears.' : 'Payment received, credits added ✓';
     return c.redirect(`/wallet?t=${encodeURIComponent(token)}&ok=${r.status === 'unpaid' ? 0 : 1}&msg=${encodeURIComponent(msg)}`, 303);
   },
