@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
 import type { Mastra } from '@mastra/core';
 import { db } from '../db';
+import { appendToThread } from '../thread';
 import { sendWhatsApp } from '../whatsapp';
 import { CATEGORY_LABEL, type EventCategory, type EventStatus } from './classify';
 import { formatLocal } from './time';
@@ -58,6 +58,16 @@ export function toPicks(events: ScoredEvent[], tz: string): Pick[] {
   }));
 }
 
+/** The numbers the user last saw, so "book #2" (book-event's `pick`) finds the event. */
+export async function rememberPickNumbers(userId: string, picks: Pick[]) {
+  if (!picks.length) return;
+  await db.query(
+    `UPDATE suggestions s SET pick_n = p.n, picked_at = now()
+     FROM unnest($2::uuid[], $3::int[]) AS p(event_id, n) WHERE s.user_id = $1 AND s.event_id = p.event_id`,
+    [userId, picks.map(p => p.eventId), picks.map(p => p.n)],
+  );
+}
+
 /** The morning message: plain WhatsApp text, numbered so the user can answer "1", "2" or "3". */
 export function picksMessage(picks: Pick[], name?: string | null, tz = process.env.DEFAULT_TIMEZONE || 'America/Los_Angeles') {
   const lines = picks.map(p => {
@@ -105,29 +115,9 @@ export async function sendPicks(mastra: Mastra | undefined, userId: string, pick
     `UPDATE suggestions SET notified_at = now() WHERE user_id = $1 AND event_id = ANY($2::uuid[])`,
     [userId, picks.map(p => p.eventId)],
   );
+  await rememberPickNumbers(userId, picks);
 
-  try {
-    const memory = await mastra?.getAgent('concierge').getMemory();
-    if (memory) {
-      const threadId = `wa:${user.phone}`;
-      if (!(await memory.getThreadById({ threadId }))) await memory.createThread({ threadId, resourceId: userId });
-      const meta = picks.map(p => `#${p.n} = event ${p.eventId}`).join(', ');
-      await memory.saveMessages({
-        messages: [
-          {
-            id: randomUUID(),
-            role: 'assistant',
-            createdAt: new Date(),
-            threadId,
-            resourceId: userId,
-            type: 'text',
-            content: { format: 2, parts: [{ type: 'text', text: `${text}\n\n(internal: ${meta})` }] },
-          },
-        ],
-      });
-    }
-  } catch (err) {
-    console.warn('[events] could not save picks to the chat thread:', String(err).slice(0, 200));
-  }
+  const meta = picks.map(p => `#${p.n} = event ${p.eventId}`).join(', ');
+  await appendToThread(mastra, userId, user.phone, `${text}\n\n(internal: ${meta})`);
   return { sent: true };
 }

@@ -30,6 +30,25 @@ export function decide(input: {
   };
 }
 
+export type BookingApproval = { action: 'book' | 'ask' | 'top_up'; reason: string };
+
+/**
+ * A booking the user asked for: go ahead, ask first, or stop for a top-up. Pure code: the booking workflow calls it
+ * with the estimate before holding credits and again with the total the checkout page shows.
+ */
+export function approveBooking(input: { totalCents: number; budget: BudgetStatus; heldCents?: number }): BookingApproval {
+  const { totalCents, budget } = input;
+  // Credits this booking already holds count as available for it.
+  const available = budget.creditsAvailableCents + (input.heldCents ?? 0);
+  const remaining = budget.remainingCents + (input.heldCents ?? 0);
+  if (totalCents <= 0) return { action: 'book', reason: 'free' };
+  if (totalCents > available) return { action: 'top_up', reason: 'not enough credits' };
+  if (totalCents > remaining) return { action: 'ask', reason: 'over the monthly budget' };
+  if (budget.perEventCapCents && totalCents > budget.perEventCapCents) return { action: 'ask', reason: 'above per-event cap' };
+  if (totalCents > budget.autoApproveCents) return { action: 'ask', reason: 'above auto-approve amount' };
+  return { action: 'book', reason: 'within auto-approve amount' };
+}
+
 export type FeedbackKind = 'approved' | 'declined' | 'loved' | 'liked' | 'meh' | 'disliked';
 
 // How each kind of feedback moves the auto-book bar. Starts high (0.85) so the agent asks a lot at

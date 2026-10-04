@@ -1,4 +1,5 @@
 import { db } from '../db';
+import { isMockShopUrl } from '../mockshop';
 import { STATUSES, normaliseStatus, type EventStatus } from './classify';
 import { getExa } from './exa';
 import { canonicalOrNull, isAggregatorUrl, isGenericPage, looksBookable, parsePrice } from './normalize';
@@ -99,7 +100,8 @@ export async function refreshStatus<T extends StoredEvent>(
 ): Promise<{ events: T[]; checks: Map<string, StatusCheck>; costDollars: number }> {
   const checks = new Map<string, StatusCheck>();
   const out = events.map(e => ({ ...e }));
-  const todo = out.slice(0, MAX_EVENTS);
+  // The mock shop's pages are generated from its catalogue: nothing to re-check (and Exa can't vouch for a tunnel URL).
+  const todo = out.slice(0, MAX_EVENTS).filter(e => !isMockShopUrl(e.bookingUrl ?? e.url));
   for (const e of out) checks.set(e.id, { checked: false, previous: e.status, status: e.status, startConfirmed: null, bookingUrlChanged: false, priceText: e.priceText });
   if (!todo.length || !process.env.EXA_API_KEY) return { events: out, checks, costDollars: 0 };
 

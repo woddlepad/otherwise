@@ -8,8 +8,8 @@ import { db } from './db';
  * `ref`, so Stripe webhooks, retries and double clicks can't credit or charge twice. Credits never go
  * back to the card: a cancelled event is refunded as credits.
  *
- * Booking flow: holdCredits (reserve before checkout) → captureHold (real total, rest freed) or
- * releaseHold (checkout failed) → refundHold (event cancelled later).
+ * Booking flow: holdCredits (reserve before checkout) → resizeHold (checkout total above the estimate, approved)
+ * → captureHold (real total, rest freed) or releaseHold (checkout failed) → refundHold (event cancelled later).
  */
 
 export const CURRENCY = 'EUR';
@@ -124,6 +124,28 @@ export async function holdCredits(
       [userId, h.ref, h.amountCents, h.bookingId ?? null, h.note ?? null],
     );
     return rows[0];
+  });
+}
+
+/**
+ * Raises an open hold to `amountCents` (the checkout showed more than estimated and it was approved). Lowering is a
+ * no-op: captureHold frees whatever isn't charged.
+ */
+export async function resizeHold(ref: string, amountCents: number): Promise<Hold> {
+  if (!Number.isInteger(amountCents) || amountCents <= 0) throw new CreditError('hold amount must be positive cents');
+  const { rows } = await db.query(`SELECT user_id FROM credit_holds WHERE ref = $1`, [ref]);
+  if (!rows[0]) throw new CreditError(`no hold ${ref}`);
+  return withUserLock(rows[0].user_id, async client => {
+    const hold = await lockHold(client, ref);
+    if (hold.status !== 'open') throw new CreditError(`hold ${ref} is ${hold.status}`);
+    if (amountCents <= hold.amount_cents) return hold;
+    const { availableCents } = await getCredits(hold.user_id, client);
+    const extra = amountCents - hold.amount_cents;
+    if (availableCents < extra) {
+      throw new CreditError(`not enough credits: ${availableCents / 100} available, ${extra / 100} more needed`);
+    }
+    const updated = await client.query<Hold>(`UPDATE credit_holds SET amount_cents = $2 WHERE ref = $1 RETURNING *`, [ref, amountCents]);
+    return updated.rows[0];
   });
 }
 

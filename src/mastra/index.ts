@@ -9,13 +9,15 @@ import { billingCheckout, billingRedeem, billingSuccess, devCredits, stripeWebho
 import { connectStart, onboardComplete, onboardPage } from './routes/onboarding';
 import { cronDiscover, devDiscover } from './routes/discover';
 import { eventHandoff } from './routes/handoff';
-import { devChat, devOutbox, devResetUser, whatsappWebhook } from './routes/whatsapp';
+import { mockShopRoutes } from './routes/mockshop';
+import { devBookings, devChat, devOutbox, devResetUser, whatsappWebhook } from './routes/whatsapp';
+import { bookEvent } from './workflows/book';
 import { discoverEvents } from './workflows/discover';
 import { onboardUser } from './workflows/onboard';
 
 export const mastra = new Mastra({
   agents: { concierge, analyst, scout },
-  workflows: { onboardUser, discoverEvents },
+  workflows: { onboardUser, discoverEvents, bookEvent },
   storage: new PostgresStore({
     id: 'booking-agent-storage',
     connectionString: process.env.DATABASE_URL!,
@@ -27,6 +29,8 @@ export const mastra = new Mastra({
       devChat,
       devOutbox,
       devResetUser,
+      devBookings,
+      ...mockShopRoutes,
       onboardPage,
       connectStart,
       onboardComplete,

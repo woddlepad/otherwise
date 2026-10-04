@@ -4,7 +4,7 @@ import { getBudgetStatus } from '../../lib/db';
 import { defaultWindow, discover, dropUnreachable, finalizePicks, loadContext } from '../../lib/events/discover';
 import { geocodeUserHome } from '../../lib/events/geocode';
 import { CATEGORIES } from '../../lib/events/classify';
-import { toPicks } from '../../lib/events/notify';
+import { rememberPickNumbers, toPicks } from '../../lib/events/notify';
 import { scoreEvents } from '../../lib/events/score';
 import { recentEvents, saveSuggestions } from '../../lib/events/store';
 import { zonedToUtc } from '../../lib/events/time';
@@ -60,9 +60,8 @@ export const findEvents = createTool({
       events = (await discover(userId, { trigger: 'chat', hint: request, window: ctx.window, categories, limit: 6 })).events;
     }
     mastra?.getLogger().info('find-events', { userId, request, cached: cached.length, returned: events.length });
-    return {
-      source: cached.length >= CACHE_MIN ? 'stored events from today' : 'fresh web search',
-      events: toPicks(events, ctx.timezone),
-    };
+    const picks = toPicks(events, ctx.timezone);
+    await rememberPickNumbers(userId, picks);
+    return { source: cached.length >= CACHE_MIN ? 'stored events from today' : 'fresh web search', events: picks };
   },
 });

@@ -270,3 +270,37 @@ CREATE TABLE IF NOT EXISTS outbound_messages (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS outbound_messages_phone ON outbound_messages (phone, created_at);
+
+-- ---------- Booking flow (src/mastra/workflows/book.ts, docs/booking/PLAN.md) ----------
+-- One row per user + event + showtime (idempotency_key); a failed or cancelled booking is reused by the next attempt.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS showtime         text;         -- local "2026-10-08T20:30" being booked
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS hold_ref         text;         -- credit_holds.ref of the current attempt
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS approved_cents   integer;      -- total agreed to (auto-approve or the user's "yes")
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS suspended_step   text;         -- workflow step waiting for the user
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS order_ref        text;         -- the shop's order number
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pay_attempted_at timestamptz;  -- set right before the card is submitted: never twice
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS error            text;
+
+-- Numbered picks the user last saw (find-events, morning message), so "book #2" resolves to an event.
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS pick_n    integer;
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS picked_at timestamptz;
+
+-- Mock ticket shop "Ticketeria" (src/mastra/routes/mockshop.ts, only with MOCK_SHOP=1): its orders, to check bookings against.
+CREATE TABLE IF NOT EXISTS mock_orders (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_no          text UNIQUE NOT NULL,                 -- e.g. TK-7Q4M2X
+  cart_id           text UNIQUE NOT NULL,                 -- one order per checkout, so a double submit can't buy twice
+  event_slug        text NOT NULL,
+  showtime          text NOT NULL,                        -- local "2026-10-08T20:30" (Europe/Berlin)
+  qty               integer NOT NULL,
+  ticket_type       text NOT NULL,
+  unit_price_cents  integer NOT NULL,
+  fees_cents        integer NOT NULL DEFAULT 0,
+  total_cents       integer NOT NULL,
+  attendee_name     text,
+  attendee_email    text,
+  member_email      text,                                 -- signed-in account (login-required events)
+  card_last4        text,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mock_orders_created ON mock_orders (created_at);
