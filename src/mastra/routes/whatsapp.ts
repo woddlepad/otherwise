@@ -72,6 +72,7 @@ export const whatsappWebhook = registerApiRoute('/webhooks/whatsapp', {
       }
     });
     const route = forwarded ? null : await findDevRoute(phone);
+    if (route) console.log('[devroutes] forwarding', { phone, worktree: route.worktree, targetUrl: route.targetUrl });
     // Answer Twilio right away (15s timeout) and reply out-of-band once the agent is done.
     // waitUntil keeps the Neon Function alive past the response; it's a no-op under `mastra dev`.
     waitUntil(route
