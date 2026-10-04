@@ -3,6 +3,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import { registerApiRoute } from '@mastra/core/server';
 import { waitUntil } from '@neon/functions';
 import { upsertUserByPhone } from '../../lib/db';
+import { findDevRoute, forwardToDev, verifyDevForward } from '../../lib/devroutes';
 import { phoneFromWhatsApp, sendWhatsApp, verifyTwilioSignature } from '../../lib/whatsapp';
 import { onboardingReply } from './onboarding';
 
@@ -43,12 +44,17 @@ export const whatsappWebhook = registerApiRoute('/webhooks/whatsapp', {
   requiresAuth: false,
   handler: async c => {
     const mastra = c.get('mastra');
-    const params = Object.fromEntries(
-      Object.entries(await c.req.parseBody()).map(([k, v]) => [k, String(v)]),
-    );
-    const url = process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL.replace(/\/$/, '')}/webhooks/whatsapp` : c.req.url;
-    if (!verifyTwilioSignature(c.req.header('X-Twilio-Signature'), url, params)) {
-      return c.text('invalid signature', 403);
+    const rawBody = await c.req.text();
+    const params = Object.fromEntries(new URLSearchParams(rawBody));
+    // Forwarded by production to this dev worktree (see src/lib/devroutes.ts), or straight from Twilio.
+    const forwarded = c.req.header('X-Dev-Forward');
+    if (forwarded) {
+      if (!verifyDevForward(forwarded, rawBody)) return c.text('invalid forward signature', 403);
+    } else {
+      const url = process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL.replace(/\/$/, '')}/webhooks/whatsapp` : c.req.url;
+      if (!verifyTwilioSignature(c.req.header('X-Twilio-Signature'), url, params)) {
+        return c.text('invalid signature', 403);
+      }
     }
 
     const { MessageSid, From, Body, ProfileName } = params;
@@ -56,9 +62,7 @@ export const whatsappWebhook = registerApiRoute('/webhooks/whatsapp', {
     seenMessageSids.add(MessageSid);
 
     const phone = phoneFromWhatsApp(From);
-    // Answer Twilio right away (15s timeout) and reply out-of-band once the agent is done.
-    // waitUntil keeps the Neon Function alive past the response; it's a no-op under `mastra dev`.
-    waitUntil(enqueue(phone, async () => {
+    const turn = () => enqueue(phone, async () => {
       try {
         const reply = await handleIncomingMessage(mastra, phone, Body ?? '', ProfileName);
         if (reply.trim()) await sendWhatsApp(phone, reply);
@@ -66,7 +70,17 @@ export const whatsappWebhook = registerApiRoute('/webhooks/whatsapp', {
         mastra.getLogger().error('whatsapp turn failed', { phone, err: String(err) });
         await sendWhatsApp(phone, 'Sorry, something broke on my side. Try again in a minute 🙏').catch(() => {});
       }
-    }));
+    });
+    const route = forwarded ? null : await findDevRoute(phone);
+    // Answer Twilio right away (15s timeout) and reply out-of-band once the agent is done.
+    // waitUntil keeps the Neon Function alive past the response; it's a no-op under `mastra dev`.
+    waitUntil(route
+      ? forwardToDev(route, rawBody).catch(async err => {
+          mastra.getLogger().warn('dev forward failed, answering from prod', { phone, err: String(err) });
+          await sendWhatsApp(phone, `⚠️ Dev worktree "${route.worktree}" is unreachable, so production is answering.`).catch(() => {});
+          await turn();
+        })
+      : turn());
 
     return c.body(EMPTY_TWIML, 200, { 'Content-Type': 'text/xml' });
   },

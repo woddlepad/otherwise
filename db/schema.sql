@@ -211,3 +211,13 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'othe
 ALTER TABLE events ADD COLUMN IF NOT EXISTS tags     text[] NOT NULL DEFAULT '{}';   -- lowercase genre/format words
 CREATE INDEX IF NOT EXISTS events_category ON events (category, starts_at);
 ALTER TABLE exa_page_cache ADD COLUMN IF NOT EXISTS schema_version integer NOT NULL DEFAULT 1;
+
+-- Dev worktrees (plugins/worktrees): production forwards a phone's inbound WhatsApp messages to the
+-- worktree it's routed to. Only read where WHATSAPP_ROUTER=1 (prod); branches carry a harmless copy.
+CREATE TABLE IF NOT EXISTS dev_routes (
+  phone       text PRIMARY KEY,                       -- E.164
+  worktree    text NOT NULL,
+  target_url  text NOT NULL,                          -- the worktree's public base URL
+  expires_at  timestamptz NOT NULL,
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);

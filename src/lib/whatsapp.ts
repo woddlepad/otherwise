@@ -18,9 +18,12 @@ export function phoneFromWhatsApp(address: string) {
   return address.replace(/^whatsapp:/, '');
 }
 
+// Dev worktrees run on a copy of production data, so they may only message these numbers (comma-separated E.164).
+const allowlist = process.env.WHATSAPP_ALLOWLIST?.split(',').map(p => p.trim()).filter(Boolean);
+
 export async function sendWhatsApp(phone: string, text: string, mediaUrl?: string) {
-  if (!isTwilioConfigured()) {
-    console.log(`[whatsapp:dry-run] → ${phone}: ${text}`);
+  if (!isTwilioConfigured() || (allowlist && !allowlist.includes(phone))) {
+    console.log(`[whatsapp:${allowlist ? 'not-allowlisted' : 'dry-run'}] → ${phone}: ${text}`);
     return;
   }
   const chunks = splitMessage(text);

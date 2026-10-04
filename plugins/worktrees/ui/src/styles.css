@@ -1,0 +1,3 @@
+@import '@atmos.build/ui/mcp-app/styles.css';
+
+@source './**/*.{ts,tsx}';
