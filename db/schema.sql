@@ -281,3 +281,60 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_url        text;       
 ALTER TABLE events ADD COLUMN IF NOT EXISTS policy_url              text;         -- page stating the policy
 ALTER TABLE events ADD COLUMN IF NOT EXISTS cancel_by               timestamptz;  -- last moment to cancel under the policy
 ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_checked_at timestamptz;
+
+-- ---------- Agent inboxes (AgentMail, src/lib/agentmail.ts, docs/agentmail.md) ----------
+-- One inbox per user, created lazily. AGENTMAIL_ENV that created it (prod, wt-<worktree>, dev): worktree databases
+-- are copies of production, so each environment only uses and processes inboxes it created itself.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agentmail_email    text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS agentmail_env      text;
+-- Which address the agent types into signup forms (policy.chooseSignupEmail): auto | always_user
+ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_email_pref  text NOT NULL DEFAULT 'auto';
+CREATE INDEX IF NOT EXISTS users_agentmail_inbox ON users (agentmail_inbox_id);
+
+-- An address handed out for one event's signup/checkout, so inbound mail can be matched to the event.
+CREATE TABLE IF NOT EXISTS email_signups (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_id     uuid REFERENCES events(id) ON DELETE SET NULL,
+  url          text,                                  -- the page with the form
+  site_domain  text,                                  -- e.g. eventbrite.com (no www)
+  email        text NOT NULL,
+  email_kind   text NOT NULL CHECK (email_kind IN ('agent','user')),
+  reason       text,
+  status       text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed')),
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS email_signups_user ON email_signups (user_id, created_at);
+
+-- Every email received in an agent inbox (supersedes the unused inbound_emails). message_id dedupes webhook retries
+-- and webhook/websocket overlap; claimed_at/processed_at let a delivery whose processing died be picked up again.
+CREATE TABLE IF NOT EXISTS agent_emails (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  inbox_id      text NOT NULL,
+  message_id    text UNIQUE NOT NULL,
+  thread_id     text,
+  from_address  text,
+  subject       text,
+  text          text,
+  received_at   timestamptz NOT NULL DEFAULT now(),
+  kind          text CHECK (kind IN ('verification','confirmation','marketing','other')),
+  signup_id     uuid REFERENCES email_signups(id) ON DELETE SET NULL,
+  event_id      uuid REFERENCES events(id) ON DELETE SET NULL,
+  extracted     jsonb NOT NULL DEFAULT '{}',          -- links, codes, and for confirmations the booking details
+  claimed_at    timestamptz NOT NULL DEFAULT now(),
+  processed_at  timestamptz,
+  notified_at   timestamptz                           -- WhatsApp sent (confirmations only)
+);
+CREATE INDEX IF NOT EXISTS agent_emails_user_event ON agent_emails (user_id, event_id, received_at);
+
+-- Ticket attachments of confirmation emails, served at /tickets/:token (unguessable) so WhatsApp can link to them.
+CREATE TABLE IF NOT EXISTS email_attachments (
+  token          text PRIMARY KEY,
+  email_id       uuid NOT NULL REFERENCES agent_emails(id) ON DELETE CASCADE,
+  attachment_id  text NOT NULL,
+  filename       text,
+  content_type   text,
+  size           integer,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);

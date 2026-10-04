@@ -17,6 +17,8 @@ const passthrough = [
   'EXA_API_KEY',
   'KERNEL_API_KEY',
   'AGENTMAIL_API_KEY',
+  'AGENTMAIL_WEBHOOK_SECRET',
+  'AGENTMAIL_DOMAIN',
   'COMPOSIO_API_KEY',
   'DEV_CHAT_TOKEN',
   'WHATSAPP_ROUTER',
@@ -31,7 +33,12 @@ export default defineConfig({
     agent: {
       name: 'Booking agent (Mastra)',
       source: 'src/index.ts',
-      env: Object.fromEntries(passthrough.filter(k => process.env[k]).map(k => [k, process.env[k]!])),
+      env: {
+        // The deployed function is production for AgentMail: webhook inbound, only inboxes tagged "prod".
+        AGENTMAIL_ENV: 'prod',
+        AGENTMAIL_INBOUND: 'webhook',
+        ...Object.fromEntries(passthrough.filter(k => process.env[k]).map(k => [k, process.env[k]!])),
+      },
     },
   },
 });

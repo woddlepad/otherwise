@@ -16,7 +16,7 @@ export const getProfile = createTool({
   inputSchema: z.object({}),
   execute: async (_input, { requestContext }) => {
     const userId = userIdFrom(requestContext);
-    const { rows } = await db.query(`SELECT name, city, interests FROM users WHERE id = $1`, [userId]);
+    const { rows } = await db.query(`SELECT name, email, city, interests, signup_email_pref AS "signupEmailPreference" FROM users WHERE id = $1`, [userId]);
     const b = await getBudgetStatus(userId);
     return {
       ...rows[0],
@@ -36,9 +36,10 @@ export const getProfile = createTool({
 export const updateProfile = createTool({
   id: 'update-profile',
   description:
-    "Save the user's name, city, interests or budget rules. Only pass fields the user actually stated. Money in major units (e.g. 25 = €25).",
+    "Save the user's name, email, city, interests or budget rules. Only pass fields the user actually stated. Money in major units (e.g. 25 = €25).",
   inputSchema: z.object({
     name: z.string().optional(),
+    email: z.string().email().optional().describe("the user's own email address, only as they stated it"),
     city: z.string().optional(),
     interests: z.string().optional().describe('Full replacement free-text list of interests and dislikes'),
     monthlyLimit: z.number().nonnegative().optional(),
@@ -50,9 +51,10 @@ export const updateProfile = createTool({
     const userId = userIdFrom(requestContext);
     const cents = (v?: number) => (v === undefined ? null : Math.round(v * 100));
     await db.query(
-      `UPDATE users SET name = COALESCE($2, name), city = COALESCE($3, city), interests = COALESCE($4, interests)
+      `UPDATE users SET name = COALESCE($2, name), city = COALESCE($3, city), interests = COALESCE($4, interests),
+         email = COALESCE($5, email)
        WHERE id = $1`,
-      [userId, input.name ?? null, input.city ?? null, input.interests ?? null],
+      [userId, input.name ?? null, input.city ?? null, input.interests ?? null, input.email?.trim() ?? null],
     );
     await db.query(
       `UPDATE budgets SET

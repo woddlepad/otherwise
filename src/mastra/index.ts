@@ -8,7 +8,9 @@ import { scout } from './agents/scout';
 import { billingCheckout, billingRedeem, billingSuccess, devCredits, stripeWebhook, walletPage } from './routes/billing';
 import { connectStart, onboardComplete, onboardPage } from './routes/onboarding';
 import { cronDiscover, devDiscover } from './routes/discover';
+import { agentmailWebhook, eventConfirmation, ticketFile } from './routes/agentmail';
 import { eventHandoff } from './routes/handoff';
+import { startAgentMailInbound } from '../lib/email-inbound';
 import { devChat, devOutbox, devResetUser, whatsappWebhook } from './routes/whatsapp';
 import { discoverEvents } from './workflows/discover';
 import { onboardUser } from './workflows/onboard';
@@ -39,6 +41,9 @@ export const mastra = new Mastra({
       cronDiscover,
       devDiscover,
       eventHandoff,
+      eventConfirmation,
+      agentmailWebhook,
+      ticketFile,
       registerApiRoute('/health', {
         method: 'GET',
         requiresAuth: false,
@@ -47,3 +52,6 @@ export const mastra = new Mastra({
     ],
   },
 });
+
+// Dev / worktrees: inbound agent mail over AgentMail's WebSocket (production uses POST /webhooks/agentmail instead).
+startAgentMailInbound().catch(err => console.error('[agentmail] websocket inbound failed to start', String(err)));

@@ -28,6 +28,7 @@
     "@mastra/pg": "^1.29.0",
     "@neon/functions": "^0.11.0",
     "@onkernel/sdk": "^0.119.0",
+    "agentmail": "^0.5.35",
     "dotenv": "^18.0.5",
     "exa-js": "^2.25.0",
     "hono": "^4.13.13",

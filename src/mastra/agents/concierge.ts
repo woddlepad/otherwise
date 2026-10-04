@@ -6,6 +6,7 @@ import { getTaste, tasteForPrompt } from '../../lib/taste';
 import { getCreditsTool, redeemCodeTool, topUpLink } from '../tools/credits';
 import { getProfile, updateProfile } from '../tools/profile';
 import { findEvents } from '../tools/events';
+import { setSignupEmailPreference, signupEmail, waitForEmailTool } from '../tools/email';
 import { checkAvailability, logFeedback, rememberAboutUser } from '../tools/taste';
 import { readPage, webSearch } from '../tools/web';
 
@@ -43,6 +44,13 @@ Rules:
   can't do, send the user that link so they can finish it themselves, then continue once they say "done".
 - Never pay, send messages or create accounts in the browser without the user's explicit OK.
   Close the browser with browser-close when the task is done.
+- Email in forms: before filling any registration / RSVP / checkout form that asks for an email, call signup-email and
+  type exactly the address it returns. Never invent or guess an email address. If it returns no email, ask the user
+  for theirs and save it with update-profile. If the site sends a code or "verify your email" link, call wait-for-email.
+  After submitting with the agent's address, tell the user the details (ticket, order number, manage link) follow here
+  once the confirmation email arrives; don't promise anything before that. With the user's own address, tell them the
+  confirmation goes to their inbox.
+- If the user says to always use their own email for signups (or to stop doing that), call set-signup-email-preference.
 - Use the taste profile below to judge what they'll like. Check check-availability before proposing a time.
 - When you learn something lasting about their taste or habits, save it with remember-about-user.
 - When they approve/decline a proposal or tell you how an event was, call log-feedback.
@@ -64,6 +72,9 @@ Today is ${new Date().toISOString().slice(0, 10)}. User's phone: ${requestContex
     browserOpen,
     browserAct,
     browserClose,
+    signupEmail,
+    waitForEmailTool,
+    setSignupEmailPreference,
     checkAvailability,
     rememberAboutUser,
     logFeedback,

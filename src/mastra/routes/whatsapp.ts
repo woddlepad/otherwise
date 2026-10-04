@@ -3,6 +3,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import { registerApiRoute } from '@mastra/core/server';
 import { waitUntil } from '@neon/functions';
 import type { Context } from 'hono';
+import { deleteUserInbox } from '../../lib/agentmail';
 import { db, upsertUserByPhone } from '../../lib/db';
 import { findDevRoute, forwardToDev, verifyDevForward } from '../../lib/devroutes';
 import { phoneFromWhatsApp, sendWhatsApp, verifyTwilioSignature } from '../../lib/whatsapp';
@@ -158,6 +159,15 @@ export const devResetUser = registerApiRoute('/dev/reset-user', {
     const mastra = c.get('mastra');
     // Behind the phone's queue, so a turn still running doesn't write into the fresh state.
     const result = await enqueue(phone, async () => {
+      // Its agent inbox too (AgentMail plans cap the number of inboxes); only one this environment created.
+      let inboxDeleted: string | null = null;
+      const { rows: existing } = await db.query<{ id: string }>(`SELECT id FROM users WHERE phone = $1`, [phone]);
+      if (existing[0]) {
+        inboxDeleted = await deleteUserInbox(existing[0].id).catch(err => {
+          console.warn('[reset-user] could not delete agent inbox', String(err));
+          return null;
+        });
+      }
       const client = await db.connect();
       let userId: string | null = null;
       let outbox = 0;
@@ -185,7 +195,7 @@ export const devResetUser = registerApiRoute('/dev/reset-user', {
       const threadId = `wa:${phone}`;
       const hadThread = Boolean(memory && (await memory.getThreadById({ threadId })));
       if (hadThread) await memory!.deleteThread(threadId);
-      return { phone, deletedUserId: userId, outboxDeleted: outbox, threadDeleted: hadThread };
+      return { phone, deletedUserId: userId, outboxDeleted: outbox, threadDeleted: hadThread, inboxDeleted };
     });
     return c.json(result);
   },

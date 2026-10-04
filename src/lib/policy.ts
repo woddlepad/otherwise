@@ -63,3 +63,44 @@ export async function recordFeedback(
   );
   return { autoBookConfidence: rows[0]?.auto_book_confidence as number | undefined };
 }
+
+export type SignupEmailPref = 'auto' | 'always_user';
+
+/** What the agent knows about one signup/checkout form. null = unknown (counts as the conservative answer). */
+export type SignupFacts = {
+  free: boolean | null;          // no money changes hands
+  nameBound: boolean | null;     // ticket tied to a name / ID checked at the door, or personal data the user must own
+  loginRequired: boolean | null; // the site needs an existing user account / login
+};
+
+export type SignupEmailChoice = { email: string | null; kind: 'agent' | 'user'; reason: string };
+
+/**
+ * Which address goes into a signup form. Pure code on purpose (the LLM only reports the facts):
+ * the agent's own inbox only for free, anonymous, account-less signups; everything else (paid, unknown price,
+ * name-bound, login needed, or the user's "always use my email" preference) uses the user's real address.
+ * `agentEmail` is a thunk so the inbox is only created when it is actually used.
+ * email null = kind 'user' but no address on file: ask the user for it.
+ */
+export async function chooseSignupEmail(input: {
+  facts: SignupFacts;
+  pref: SignupEmailPref;
+  userEmail: string | null;
+  agentEmail: () => Promise<string>;
+}): Promise<SignupEmailChoice> {
+  const { facts, pref, userEmail } = input;
+  const user = (reason: string): SignupEmailChoice => ({
+    email: userEmail,
+    kind: 'user',
+    reason: userEmail ? reason : `${reason}; no email on file, ask the user for it`,
+  });
+  if (pref === 'always_user') return user('user prefers their own email');
+  if (facts.free !== true) return user(facts.free === false ? 'paid ticket' : 'price unknown, treated as paid');
+  if (facts.nameBound !== false) return user(facts.nameBound ? 'ticket is tied to a name/ID' : 'unknown whether the ticket is tied to a name');
+  if (facts.loginRequired !== false) return user(facts.loginRequired ? 'site needs the user\'s own account' : 'unknown whether a login is needed');
+  try {
+    return { email: await input.agentEmail(), kind: 'agent', reason: 'free, not name-bound, no account needed' };
+  } catch (err) {
+    return user(`agent inbox unavailable (${String(err).slice(0, 120)})`);
+  }
+}
