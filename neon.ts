@@ -40,6 +40,8 @@ export default defineConfig({
     agent: {
       name: 'Booking agent (Mastra)',
       source: 'src/index.ts',
+      // agentmail's SDK imports this optional peer only for x402 payments, which we don't use.
+      externalPackages: [{ name: '@x402/fetch', includeFiles: false }],
       env: {
         // The deployed function is production for AgentMail: webhook inbound, only inboxes tagged "prod".
         AGENTMAIL_ENV: 'prod',
