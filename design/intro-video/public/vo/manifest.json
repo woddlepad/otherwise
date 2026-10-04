@@ -1,0 +1,103 @@
+{
+  "01-hook": {
+    "file": "vo/01-hook.mp3",
+    "seconds": 18.29,
+    "text": "Most weeks have a free evening or two. And most of them end on the sofa. Not because nothing was on, but because finding it, deciding, and buying the ticket is just enough effort to skip it."
+  },
+  "02-what": {
+    "file": "vo/02-what.mp3",
+    "seconds": 18,
+    "text": "Otherwise is an agent that does that part for you. It finds the free evenings in your week, fills them with things you'd actually pick, books them within a budget you set, and tells you on WhatsApp. No app to open."
+  },
+  "03-numbers": {
+    "file": "vo/03-numbers.mp3",
+    "seconds": 11.18,
+    "text": "You set two numbers: a monthly budget, and how much it may spend without asking. Under that, it just books. Over it, it texts you first."
+  },
+  "04-signup": {
+    "file": "vo/04-signup.mp3",
+    "seconds": 6.64,
+    "text": "Let's set one up. Signing up takes one phone number. A setup link comes straight back."
+  },
+  "05-onboarding": {
+    "file": "vo/05-onboarding.mp3",
+    "seconds": 26.23,
+    "text": "It already knows what's on in your city this week. So instead of a questionnaire, you swipe real events. Yes to the indie gig, no to the techno night, yes to stand-up. Every swipe is taste. Then the two numbers, and that's it. Mail and calendar are optional: connected read-only, they tell it more about what you like and when you're free."
+  },
+  "06-hello": {
+    "file": "vo/06-hello.mp3",
+    "seconds": 8.59,
+    "text": "A minute later, it messages you first. It has a read on you, and it's already looking."
+  },
+  "07-booking": {
+    "file": "vo/07-booking.mp3",
+    "seconds": 24.74,
+    "text": "Here it found a film night that fits, under the auto-book limit, so it doesn't ask. It opens a real browser and goes through the checkout like you would. Before paying, it checks the total against the price it promised. The card is filled in by our code, so the AI never sees the number. Then: booked, ticket in your calendar."
+  },
+  "08-settings": {
+    "file": "vo/08-settings.mp3",
+    "seconds": 13.45,
+    "text": "Change your mind any time. Raise the budget, lower the limit, or just text it: nothing on weekdays. Text stop, and it stops."
+  },
+  "09-close": {
+    "file": "vo/09-close.mp3",
+    "seconds": 5.15,
+    "text": "Otherwise. Because otherwise, you'd have stayed in."
+  },
+  "intro": {
+    "intro-1-hero": {
+      "file": "vo/intro-1-hero.mp3",
+      "seconds": 3.11,
+      "text": "Otherwise, you'd have stayed in.",
+      "speechStart": 0,
+      "speechEnd": 2.21,
+      "speed": 1.1,
+      "lufs": -16.3
+    },
+    "intro-2-week": {
+      "file": "vo/intro-2-week.mp3",
+      "seconds": 5.8,
+      "text": "It finds the free evenings in your week, and fills them with things you'd pick.",
+      "speechStart": 0,
+      "speechEnd": 5.05,
+      "speed": 1.1,
+      "lufs": -16.3
+    },
+    "intro-3-taste": {
+      "file": "vo/intro-3-taste.mp3",
+      "seconds": 3.06,
+      "text": "It learns your taste from your inbox.",
+      "speechStart": 0,
+      "speechEnd": 2.37,
+      "speed": 1.1,
+      "lufs": -16.2
+    },
+    "intro-4-budget": {
+      "file": "vo/intro-4-budget.mp3",
+      "seconds": 6.27,
+      "text": "You set a budget. It books within it, and asks before anything bigger.",
+      "speechStart": 0,
+      "speechEnd": 5.37,
+      "speed": 1.1,
+      "lufs": -16.7
+    },
+    "intro-5-whatsapp": {
+      "file": "vo/intro-5-whatsapp.mp3",
+      "seconds": 2.46,
+      "text": "And it tells you on WhatsApp.",
+      "speechStart": 0.11,
+      "speechEnd": 1.62,
+      "speed": 1.1,
+      "lufs": -16.5
+    },
+    "intro-6-close": {
+      "file": "vo/intro-6-close.mp3",
+      "seconds": 3.19,
+      "text": "Next Thursday doesn't have to be empty.",
+      "speechStart": 0,
+      "speechEnd": 2.83,
+      "speed": 1.1,
+      "lufs": -16.6
+    }
+  }
+}

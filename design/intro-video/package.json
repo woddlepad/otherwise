@@ -1,0 +1,26 @@
+{
+  "name": "otherwise-intro-video",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Otherwise intro video (Remotion)",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render OtherwiseIntro out/otherwise-intro.mp4",
+    "poster": "remotion still OtherwiseIntro out/poster.png --frame=725",
+    "stills": "node scripts/stills.mjs",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.532",
+    "@remotion/fonts": "4.0.532",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "4.0.532"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "4.0.532",
+    "@remotion/renderer": "4.0.532",
+    "@types/react": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}
