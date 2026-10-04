@@ -1,0 +1,42 @@
+{
+  "name": "booking-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "node .mastra/output/index.mjs",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "tunnel": "cloudflared tunnel --url http://localhost:4111",
+    "typecheck": "tsc --noEmit",
+    "build:neon": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --minify --outfile=dist/neon/index.mjs --banner:js=\"import{createRequire as ___cr}from'module';import{fileURLToPath as ___f}from'url';import{dirname as ___d}from'path';const require=___cr(import.meta.url);const __filename=___f(import.meta.url);const __dirname=___d(__filename);\"",
+    "deploy:neon": "neon deploy --env .env.neon --no-env-pull"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.71",
+    "@mastra/core": "^1.74.0",
+    "@mastra/hono": "^1.7.16",
+    "@mastra/loggers": "^1.3.4",
+    "@mastra/memory": "^1.35.0",
+    "@mastra/pg": "^1.29.0",
+    "@neon/functions": "^0.11.0",
+    "dotenv": "^18.0.5",
+    "hono": "^4.13.13",
+    "pg": "^8.23.1",
+    "twilio": "^6.1.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@neon/config": "^1.8.3",
+    "@types/node": "^26.6.4",
+    "@types/pg": "^8.23.1",
+    "esbuild": "^0.28.2",
+    "mastra": "^1.32.1",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  }
+}

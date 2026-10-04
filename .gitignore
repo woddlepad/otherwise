@@ -1,0 +1,22 @@
+# deps & build
+node_modules/
+.mastra/
+dist/
+*.tsbuildinfo
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# vendored reference repos/docs (re-pull, see refs/README.md)
+refs/
+
+# local db / logs / os
+*.db
+*.db-*
+*.log
+.DS_Store
+
+# neon CLI link
+.neon
