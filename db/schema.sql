@@ -258,6 +258,17 @@ ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS method       text;     -- on
 ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS contact      text;     -- URL / email / phone for cancelling
 ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS transferable boolean;  -- tickets may be given to someone else
 
+-- Per-event cancellation (src/lib/events: status.ts, cancellation.ts, platforms.ts; PLAN §9): the policy that applies to
+-- THIS event (event page > venue policy > ticket-platform default), with a cancel/manage link. Full object stays in
+-- details.cancellation; these columns are for queries and the 24 h reuse check.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_kind       text;         -- PolicyKind
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_scope      text;         -- event | venue | platform | none
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_source     text;         -- event_page | venue_policy | platform_default | confirmation_email | none
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_url        text;         -- verified cancel/manage-order link (or the platform's order page)
+ALTER TABLE events ADD COLUMN IF NOT EXISTS policy_url              text;         -- page stating the policy
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancel_by               timestamptz;  -- last moment to cancel under the policy
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_checked_at timestamptz;
+
 -- Every outgoing WhatsApp message with what happened to it (src/lib/whatsapp.ts), one row per send (not per chunk).
 -- Dev worktrees never reach Twilio for test numbers, so this is how the chat tools (plugins/worktrees) read replies.
 CREATE TABLE IF NOT EXISTS outbound_messages (
@@ -270,17 +281,6 @@ CREATE TABLE IF NOT EXISTS outbound_messages (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS outbound_messages_phone ON outbound_messages (phone, created_at);
-
--- Per-event cancellation (src/lib/events: status.ts, cancellation.ts, platforms.ts; PLAN §9): the policy that applies to
--- THIS event (event page > venue policy > ticket-platform default), with a cancel/manage link. Full object stays in
--- details.cancellation; these columns are for queries and the 24 h reuse check.
-ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_kind       text;         -- PolicyKind
-ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_scope      text;         -- event | venue | platform | none
-ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_source     text;         -- event_page | venue_policy | platform_default | confirmation_email | none
-ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_url        text;         -- verified cancel/manage-order link (or the platform's order page)
-ALTER TABLE events ADD COLUMN IF NOT EXISTS policy_url              text;         -- page stating the policy
-ALTER TABLE events ADD COLUMN IF NOT EXISTS cancel_by               timestamptz;  -- last moment to cancel under the policy
-ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_checked_at timestamptz;
 
 -- ---------- Agent inboxes (AgentMail, src/lib/agentmail.ts, docs/agentmail.md) ----------
 -- One inbox per user, created lazily. AGENTMAIL_ENV that created it (prod, wt-<worktree>, dev): worktree databases
@@ -338,3 +338,58 @@ CREATE TABLE IF NOT EXISTS email_attachments (
   size           integer,
   created_at     timestamptz NOT NULL DEFAULT now()
 );
+
+-- ---------- Booking flow (src/mastra/workflows/book.ts, docs/booking/PLAN.md) ----------
+-- One row per user + event + showtime (idempotency_key); a failed or cancelled booking is reused by the next attempt.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS showtime         text;         -- local "2026-10-08T20:30" being booked
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS hold_ref         text;         -- credit_holds.ref of the current attempt
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS approved_cents   integer;      -- total agreed to (auto-approve or the user's "yes")
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS suspended_step   text;         -- workflow step waiting for the user
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS order_ref        text;         -- the shop's order number
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS pay_attempted_at timestamptz;  -- set right before the card is submitted: never twice
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS error            text;
+
+-- Numbered picks the user last saw (find-events, morning message), so "book #2" resolves to an event.
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS pick_n    integer;
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS picked_at timestamptz;
+
+-- Mock ticket shop "Ticketeria" (src/mastra/routes/mockshop.ts, only with MOCK_SHOP=1): its orders, to check bookings against.
+CREATE TABLE IF NOT EXISTS mock_orders (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_no          text UNIQUE NOT NULL,                 -- e.g. TK-7Q4M2X
+  cart_id           text UNIQUE NOT NULL,                 -- one order per checkout, so a double submit can't buy twice
+  event_slug        text NOT NULL,
+  showtime          text NOT NULL,                        -- local "2026-10-08T20:30" (Europe/Berlin)
+  qty               integer NOT NULL,
+  ticket_type       text NOT NULL,
+  unit_price_cents  integer NOT NULL,
+  fees_cents        integer NOT NULL DEFAULT 0,
+  total_cents       integer NOT NULL,
+  attendee_name     text,
+  attendee_email    text,
+  member_email      text,                                 -- signed-in account (login-required events)
+  card_last4        text,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mock_orders_created ON mock_orders (created_at);
+
+-- Onboarding v2 starter deck (src/lib/events/starter.ts, docs/onboarding/PLAN.md): real upcoming events in the user's
+-- city to swipe during setup. Swipes are taste signals for the onboarding analysis, not booking decisions.
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS source     text NOT NULL DEFAULT 'discovery';  -- discovery | starter
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS reaction   text CHECK (reaction IN ('like','dislike'));
+ALTER TABLE suggestions ADD COLUMN IF NOT EXISTS reacted_at timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS starter_city text;   -- city_key the starter suggestions were seeded for
+
+-- One deck per city, shared by all users there; the status row doubles as the build lock.
+CREATE TABLE IF NOT EXISTS starter_decks (
+  city_key    text PRIMARY KEY,                       -- lower-case, single-spaced city name
+  city        text NOT NULL,
+  status      text NOT NULL CHECK (status IN ('building','ready','failed')),
+  started_at  timestamptz NOT NULL DEFAULT now(),     -- a 'building' row older than 10 min counts as failed
+  built_at    timestamptz,
+  event_ids   uuid[] NOT NULL DEFAULT '{}',           -- the city's pool, best first; each user gets ~12 of them
+  cost_dollars real
+);
+
+-- Representative page image (og:image) from Exa, for event cards.
+ALTER TABLE exa_page_cache ADD COLUMN IF NOT EXISTS image text;

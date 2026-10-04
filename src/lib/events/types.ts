@@ -46,6 +46,7 @@ export type Candidate = {
   category: EventCategory;
   tags: string[];                  // lowercase genre/format words
   attrs: DerivedAttributes;        // timeOfDay, weekend, priceBand, ageLimit
+  image?: string | null;           // event photo: the og:image of its own page (single-event pages only)
 };
 
 export type StoredEvent = Candidate & {

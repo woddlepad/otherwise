@@ -4,6 +4,7 @@ import { registerApiRoute } from '@mastra/core/server';
 import { waitUntil } from '@neon/functions';
 import type { Context } from 'hono';
 import { deleteUserInbox } from '../../lib/agentmail';
+import { getCredits } from '../../lib/credits';
 import { db, upsertUserByPhone } from '../../lib/db';
 import { findDevRoute, forwardToDev, verifyDevForward } from '../../lib/devroutes';
 import { phoneFromWhatsApp, sendWhatsApp, verifyTwilioSignature } from '../../lib/whatsapp';
@@ -90,7 +91,7 @@ export const whatsappWebhook = registerApiRoute('/webhooks/whatsapp', {
 });
 
 /** Dev-only routes: gone in production, and behind X-Dev-Token whenever DEV_CHAT_TOKEN is set. */
-function devGuard(c: Context) {
+export function devGuard(c: Context) {
   if (process.env.NODE_ENV === 'production') return c.text('not found', 404);
   // The server is reachable through a public tunnel; without this anyone could chat as any phone number.
   if (process.env.DEV_CHAT_TOKEN && c.req.header('X-Dev-Token') !== process.env.DEV_CHAT_TOKEN) {
@@ -198,5 +199,44 @@ export const devResetUser = registerApiRoute('/dev/reset-user', {
       return { phone, deletedUserId: userId, outboxDeleted: outbox, threadDeleted: hadThread, inboxDeleted };
     });
     return c.json(result);
+  },
+});
+
+/**
+ * A test user's bookings and the money side of them: GET /dev/bookings?phone=+1555… → bookings (newest first),
+ * credit holds and credit ledger rows, and current credits. The worktrees plugin's chat_bookings tool reads this.
+ */
+export const devBookings = registerApiRoute('/dev/bookings', {
+  method: 'GET',
+  requiresAuth: false,
+  handler: async c => {
+    const denied = devGuard(c);
+    if (denied) return denied;
+    const phone = c.req.query('phone');
+    if (!phone) return c.json({ error: 'phone required' }, 400);
+    const { rows: users } = await db.query<{ id: string }>(`SELECT id FROM users WHERE phone = $1`, [phone]);
+    const userId = users[0]?.id;
+    if (!userId) return c.json({ phone, userId: null, credits: null, bookings: [], holds: [], ledger: [] });
+    const [bookings, holds, ledger] = await Promise.all([
+      db.query(
+        `SELECT b.id, e.title AS event, b.showtime, b.qty, b.status, b.approved_cents AS "approvedCents", b.total_cents AS "totalCents",
+                b.order_ref AS "orderRef", b.ticket_url AS "ticketUrl", b.hold_ref AS "holdRef", b.live_view_url AS "liveViewUrl",
+                b.suspended_step AS "suspendedStep", b.error, b.created_at AS "createdAt", b.updated_at AS "updatedAt"
+         FROM bookings b JOIN events e ON e.id = b.event_id WHERE b.user_id = $1 ORDER BY b.created_at DESC LIMIT 50`,
+        [userId],
+      ),
+      db.query(
+        `SELECT ref, booking_id AS "bookingId", amount_cents AS "amountCents", captured_cents AS "capturedCents", status, note,
+                created_at AS "createdAt", settled_at AS "settledAt"
+         FROM credit_holds WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+        [userId],
+      ),
+      db.query(
+        `SELECT kind, amount_cents AS "amountCents", booking_id AS "bookingId", ref, note, created_at AS "createdAt"
+         FROM credit_ledger WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`,
+        [userId],
+      ),
+    ]);
+    return c.json({ phone, userId, credits: await getCredits(userId), bookings: bookings.rows, holds: holds.rows, ledger: ledger.rows });
   },
 });

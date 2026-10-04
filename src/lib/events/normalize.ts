@@ -233,6 +233,8 @@ export function toCandidates(pages: PageEvents[], ctx: DiscoveryContext): Candid
         category,
         tags,
         attrs: deriveAttributes({ startsAt, hasTime, priceMinCents: cents, title, tags }, ctx.timezone),
+        // A listing's og:image is the venue's logo, not this event's photo.
+        image: page.pageKind === 'single_event' || page.events.length === 1 ? canonicalOrNull(page.image) : null,
       });
       if (city) cityFromPage.add(all[all.length - 1]);
     }
@@ -259,6 +261,7 @@ export function toCandidates(pages: PageEvents[], ctx: DiscoveryContext): Candid
         twin.statusCheckedAt = c.statusCheckedAt;
       }
       twin.onSaleAt ??= c.onSaleAt;
+      twin.image ??= c.image;
       twin.tags = [...new Set([...twin.tags, ...c.tags])].slice(0, 6);
       if (twin.category === 'other') twin.category = c.category;
       if (twin.priceMinCents === null && c.priceMinCents !== null) {

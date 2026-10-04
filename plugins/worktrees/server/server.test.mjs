@@ -85,7 +85,7 @@ test('exposes the worktree tools with typed schemas', async (t) => {
   const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]))
   for (const name of [
     'list_worktrees', 'create_worktree', 'remove_worktree', 'set_worktree_phone', 'start_worktree', 'stop_worktree', 'open_worktrees',
-    'chat_send', 'chat_messages', 'chat_onboard', 'chat_reset',
+    'chat_send', 'chat_messages', 'chat_onboard', 'chat_reset', 'chat_bookings', 'mock_orders',
   ]) {
     assert.ok(byName[name], name + ' is listed')
     assert.equal(byName[name].inputSchema.type, 'object')
@@ -97,6 +97,8 @@ test('exposes the worktree tools with typed schemas', async (t) => {
   assert.deepEqual(byName.chat_send.inputSchema.required.sort(), ['name', 'phone', 'text'])
   assert.equal(byName.chat_reset.annotations.destructiveHint, true)
   assert.equal(byName.chat_messages.annotations.readOnlyHint, true)
+  assert.equal(byName.mock_orders.annotations.readOnlyHint, true)
+  assert.deepEqual(byName.chat_bookings.inputSchema.required.sort(), ['name', 'phone'])
 })
 
 test('lists an empty registry through the tool and the resource', async (t) => {
@@ -126,6 +128,8 @@ test('reports unknown worktrees as errors', async (t) => {
     ['chat_send', { name: 'ghost', phone: '+15550100001', text: 'hi' }],
     ['chat_messages', { name: 'ghost', phone: '+15550100001' }],
     ['chat_reset', { name: 'ghost', phone: '+15550100001' }],
+    ['chat_bookings', { name: 'ghost', phone: '+15550100001' }],
+    ['mock_orders', { name: 'ghost' }],
     ['chat_onboard', { name: 'ghost', phone: '+15550100001', city: 'Berlin', interests: [], monthlyBudgetEur: 100, autoApproveEur: 20 }],
   ]) {
     const result = await mcp.request('tools/call', { name, arguments: args }).catch((err) => ({ isError: true, content: [{ text: err.message }] }))

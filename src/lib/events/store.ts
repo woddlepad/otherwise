@@ -56,6 +56,7 @@ export async function storeEvents(cands: Candidate[]): Promise<StoredEvent[]> {
       startLocal: c.startLocal,
       hasTime: c.hasTime,
       query: c.query,
+      image: c.image ?? null,
     };
     try {
       const { rows } = await db.query<{ id: string }>(
@@ -110,11 +111,15 @@ export async function withCoords<T extends StoredEvent>(events: T[], home?: { la
   });
 }
 
-/** Event ids already suggested to this user (any status): the daily run never repeats itself. */
+/**
+ * Event ids already suggested to this user (any status): the daily run never repeats itself. Onboarding starter
+ * cards don't count unless swiped left: a right swipe is exactly what the daily run should offer to book.
+ */
 export async function alreadySuggested(userId: string, eventIds: string[]): Promise<Set<string>> {
   if (!eventIds.length) return new Set();
   const { rows } = await db.query<{ event_id: string }>(
-    `SELECT event_id FROM suggestions WHERE user_id = $1 AND event_id = ANY($2::uuid[])`,
+    `SELECT event_id FROM suggestions WHERE user_id = $1 AND event_id = ANY($2::uuid[])
+       AND NOT (source = 'starter' AND reaction IS DISTINCT FROM 'dislike')`,
     [userId, eventIds],
   );
   return new Set(rows.map(r => r.event_id));

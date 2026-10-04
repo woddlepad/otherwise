@@ -219,6 +219,116 @@ export const chatReset = tool({
       : `${phone} had nothing to reset.`,
 })
 
+// ---------- booking checks: the mock ticket shop's orders, a test user's bookings and credits ----------
+
+export const MockOrder = z.object({
+  orderNo: z.string(),
+  eventSlug: z.string(),
+  showtime: z.string(),
+  qty: z.number().int(),
+  ticketType: z.string(),
+  unitPriceCents: z.number().int(),
+  feesCents: z.number().int(),
+  totalCents: z.number().int(),
+  attendeeName: z.string().nullable(),
+  attendeeEmail: z.string().nullable(),
+  memberEmail: z.string().nullable(),
+  cardLast4: z.string().nullable(),
+  createdAt: z.string(),
+})
+
+const cents = (c: number | null) => (c === null ? '—' : `${c < 0 ? '−' : ''}€${(Math.abs(c) / 100).toFixed(2)}`)
+
+export const mockOrders = tool({
+  name: 'mock_orders',
+  title: 'Mock shop orders',
+  description:
+    "Orders placed in a worktree's mock ticket shop (Ticketeria, served at /mock/shop when its .env has MOCK_SHOP=1), newest first: " +
+    'what the booking flow actually bought, with ticket type, quantity, fees and total. Fails if the worktree has MOCK_SHOP off.',
+  input: z.object({
+    name: WorktreeName,
+    since: z.string().datetime({ offset: true }).optional().describe('Only orders after this ISO time'),
+    limit: z.number().int().min(1).max(500).default(20),
+  }),
+  output: z.object({ orders: z.array(MockOrder) }),
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  text: ({ orders }) =>
+    orders.length
+      ? orders
+          .map((o) => `${o.createdAt} ${o.orderNo} ${o.eventSlug} ${o.showtime} ${o.qty}× ${o.ticketType} ${cents(o.totalCents)}${o.feesCents ? ` (fees ${cents(o.feesCents)})` : ''}${o.cardLast4 ? ` card •${o.cardLast4}` : ''}`)
+          .join('\n')
+      : 'No orders.',
+})
+
+export const BookingsReport = z.object({
+  phone: z.string(),
+  userId: z.string().nullable(),
+  credits: z.object({ balanceCents: z.number(), heldCents: z.number(), availableCents: z.number() }).nullable(),
+  bookings: z.array(
+    z.object({
+      id: z.string(),
+      event: z.string(),
+      showtime: z.string().nullable(),
+      qty: z.number().int(),
+      status: z.string(),
+      approvedCents: z.number().nullable(),
+      totalCents: z.number().nullable(),
+      orderRef: z.string().nullable(),
+      ticketUrl: z.string().nullable(),
+      holdRef: z.string().nullable(),
+      liveViewUrl: z.string().nullable(),
+      suspendedStep: z.string().nullable(),
+      error: z.string().nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+    }),
+  ),
+  holds: z.array(
+    z.object({
+      ref: z.string(),
+      bookingId: z.string().nullable(),
+      amountCents: z.number(),
+      capturedCents: z.number().nullable(),
+      status: z.string(),
+      note: z.string().nullable(),
+      createdAt: z.string(),
+      settledAt: z.string().nullable(),
+    }),
+  ),
+  ledger: z.array(
+    z.object({ kind: z.string(), amountCents: z.number(), bookingId: z.string().nullable(), ref: z.string(), note: z.string().nullable(), createdAt: z.string() }),
+  ),
+})
+
+export const chatBookings = tool({
+  name: 'chat_bookings',
+  title: 'Test user bookings',
+  description:
+    "A test user's bookings in a worktree (status, approved and paid totals, order number, tickets link, what it waits for, error) " +
+    'with their credit holds, credit ledger rows and current credits, to check the booking flow against the money side.',
+  input: z.object({ name: WorktreeName, phone: Phone }),
+  output: BookingsReport,
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  text: ({ phone, userId, credits, bookings, holds, ledger }) =>
+    !userId
+      ? `${phone} has no user.`
+      : [
+          `Credits: ${cents(credits?.availableCents ?? null)} available, ${cents(credits?.heldCents ?? null)} held, balance ${cents(credits?.balanceCents ?? null)}`,
+          'Bookings:',
+          ...(bookings.length
+            ? bookings.map(
+                (b) =>
+                  `  ${b.id.slice(0, 8)} ${b.status} ${b.qty}× ${b.event} ${b.showtime ?? ''} approved ${cents(b.approvedCents)} paid ${cents(b.totalCents)}` +
+                  `${b.orderRef ? ` order ${b.orderRef}` : ''}${b.suspendedStep ? ` waiting at ${b.suspendedStep}` : ''}${b.error ? ` error: ${b.error}` : ''}`,
+              )
+            : ['  none']),
+          'Holds:',
+          ...(holds.length ? holds.map((h) => `  ${h.ref} ${h.status} ${cents(h.amountCents)} captured ${cents(h.capturedCents)}`) : ['  none']),
+          'Ledger:',
+          ...(ledger.length ? ledger.map((l) => `  ${l.createdAt} ${l.kind} ${cents(l.amountCents)} ${l.note ?? ''}`) : ['  none']),
+        ].join('\n'),
+})
+
 export const appDocument = appResource({
   uri: 'ui://worktrees/app.html',
   name: 'Worktrees',
@@ -245,10 +355,12 @@ export const extensionContract = defineExtension({
   resources: { worktreeList, appDocument },
   tools: {
     listWorktrees, createWorktree, removeWorktree, setPhone, startWorktree, stopWorktree, openWorktreesApp,
-    chatSend, chatMessages, chatOnboard, chatReset,
+    chatSend, chatMessages, chatOnboard, chatReset, chatBookings, mockOrders,
   },
 })
 
 export type Worktree = z.infer<typeof Worktree>
 export type RouteState = z.infer<typeof RouteState>
 export type ChatMessage = z.infer<typeof ChatMessage>
+export type MockOrder = z.infer<typeof MockOrder>
+export type BookingsReport = z.infer<typeof BookingsReport>

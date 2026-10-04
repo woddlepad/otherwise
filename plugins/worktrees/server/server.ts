@@ -5,6 +5,7 @@ import { createSqliteExtension } from '@atmos.build/extension/server'
 import { App, onboard } from './chat.ts'
 import {
   appDocument,
+  chatBookings,
   chatMessages,
   chatOnboard,
   chatReset,
@@ -12,6 +13,7 @@ import {
   createWorktree,
   extensionContract,
   listWorktrees,
+  mockOrders,
   openWorktreesApp,
   removeWorktree,
   setPhone,
@@ -219,6 +221,10 @@ extension.tool(chatMessages, async (_context, { name, phone, since, limit }) => 
 extension.tool(chatOnboard, async (_context, input) => onboard(await App.open(await find(input.name)), input))
 
 extension.tool(chatReset, async (_context, { name, phone, force }) => (await App.open(await find(name))).reset(phone, force))
+
+extension.tool(chatBookings, async (_context, { name, phone }) => (await App.open(await find(name))).bookings(phone))
+
+extension.tool(mockOrders, async (_context, { name, since, limit }) => (await App.open(await find(name))).mockOrders(since, limit))
 
 extension.app(appDocument)
 extension.tool(openWorktreesApp, () => ({ ready: true }))

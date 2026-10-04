@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import type { ChatMessage } from './contract.ts'
+import type { BookingsReport, ChatMessage, MockOrder } from './contract.ts'
 import { DomainError, type Meta } from './ops.ts'
 
 // Test chats go through the worktree's real WhatsApp webhook, signed the way production signs a forwarded
@@ -62,6 +62,17 @@ export class App {
     if (since) q.set('since', since)
     if (limit) q.set('limit', String(limit))
     return this.json<Outbox>(`/dev/outbox?${q}`)
+  }
+
+  mockOrders(since?: string, limit?: number) {
+    const q = new URLSearchParams()
+    if (since) q.set('since', since)
+    if (limit) q.set('limit', String(limit))
+    return this.json<{ orders: MockOrder[] }>(`/dev/mock-orders?${q}`)
+  }
+
+  bookings(phone: string) {
+    return this.json<BookingsReport>(`/dev/bookings?${new URLSearchParams({ phone })}`)
   }
 
   reset(phone: string, force: boolean) {

@@ -68,6 +68,7 @@ export type PageEvents = {
   pageKind: 'single_event' | 'listing' | 'other';
   events: ExtractedEvent[];
   query: string;
+  image?: string | null;             // the page's representative image (og:image) as Exa reports it
   extractedAt?: string;              // ISO; when Exa extracted the page (cache row time); absent = just now
 };
 
@@ -170,7 +171,7 @@ export async function loadPages(items: { url: string; query: string }[], ctx: Di
       const parsed = parseSummary((x as { summary?: unknown }).summary);
       if (!parsed) continue;
       got.add(x.url);
-      fresh.push({ pageUrl: x.url, pageTitle: x.title ?? null, query: queryOf.get(x.url) ?? '', ...parsed });
+      fresh.push({ pageUrl: x.url, pageTitle: x.title ?? null, image: x.image ?? null, query: queryOf.get(x.url) ?? '', ...parsed });
     }
     const empty = batches[i].filter(u => !got.has(u));
     failed.push(...empty);
