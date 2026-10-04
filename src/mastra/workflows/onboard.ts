@@ -43,7 +43,7 @@ const analyzeTaste = createStep({
   execute: async ({ inputData: { userId, signals }, mastra }) => {
     const result = await mastra.getAgent('analyst').generate(
       `Build this person's taste profile for going out. If the data is thin, say so in the summary, keep strengths low and add open questions.\n\n${signals}`,
-      { structuredOutput: { schema: tasteProfileSchema } },
+      { structuredOutput: { schema: tasteProfileSchema, errorStrategy: 'strict', jsonPromptInjection: true } },
     );
     await saveTasteProfile(userId, result.object);
     return { userId, profile: result.object };
