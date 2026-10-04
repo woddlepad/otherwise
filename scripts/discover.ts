@@ -39,7 +39,9 @@ function print(events: ScoredEvent[], tz: string) {
         `\n     ${e.category} [${e.tags.join(', ')}] ${e.attrs.timeOfDay}${e.attrs.weekend ? ' weekend' : ''} ${e.attrs.priceBand} · matches: ${e.matches?.join(', ') || '-'}` +
         (e.cancellation
           ? `\n     ↩ ${e.cancellation.summary} [method ${e.cancellation.method}${e.cancellation.contact ? ` ${e.cancellation.contact}` : ''}` +
-            `, transferable ${e.cancellation.transferable ?? '?'}]${e.cancellation.quote ? ` — "${e.cancellation.quote.slice(0, 120)}"` : ''}`
+            `, transferable ${e.cancellation.transferable ?? '?'}]${e.cancellation.quote ? ` — "${e.cancellation.quote.slice(0, 120)}"` : ''}` +
+            `\n       scope ${e.cancellation.scope} · source ${e.cancellation.source}${e.cancellation.platform ? ` · platform ${e.cancellation.platform}` : ''}` +
+            ` · cancelBy ${e.cancellation.cancelBy ?? '-'} · cancelUrl ${e.cancellation.cancellationUrl ?? '-'} · policyUrl ${e.cancellation.policyUrl ?? '-'}`
           : ''),
     );
   }

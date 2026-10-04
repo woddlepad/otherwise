@@ -29,6 +29,9 @@ export type Pick = {
   decisionReason: string;
   cancellation: string | null;      // e.g. "No refunds, exchange/credit only until Thu 8 Oct, 19:30 ($25 fee)"
   cancelBy: string | null;          // ISO instant, for the booking flow
+  cancellationScope: 'event' | 'venue' | 'platform' | 'none' | null; // whose policy `cancellation` is (event page wins)
+  cancellationUrl: string | null;   // verified cancel/manage link, or the ticket platform's order page
+  policyUrl: string | null;         // page stating the policy
 };
 
 export function toPicks(events: ScoredEvent[], tz: string): Pick[] {
@@ -55,6 +58,9 @@ export function toPicks(events: ScoredEvent[], tz: string): Pick[] {
     decisionReason: e.decision.reason,
     cancellation: e.cancellation?.summary ?? null,
     cancelBy: e.cancellation?.cancelBy ?? null,
+    cancellationScope: e.cancellation?.scope ?? null,
+    cancellationUrl: e.cancellation?.cancellationUrl ?? null,
+    policyUrl: e.cancellation?.policyUrl ?? null,
   }));
 }
 

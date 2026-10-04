@@ -189,7 +189,13 @@ export async function finalizePicks(scored: ScoredEvent[], timezone: string, lim
     }
     gated.push({ ...e, decision });
   }
-  const withPolicy = await attachCancellation(gated.slice(0, limit), timezone);
+  // Per-event policy (PLAN §9): what each event's own page said during the re-check; venue/platform policy fills in.
+  const pages = new Map([...fresh.checks].map(([id, c]) => [id, c.policy] as const));
+  const withPolicy = await attachCancellation(gated.slice(0, limit), timezone, pages);
+  const byScope = new Map<string, number>();
+  for (const e of withPolicy) byScope.set(e.cancellation.scope, (byScope.get(e.cancellation.scope) ?? 0) + 1);
+  console.info(`[events] cancellation scope: ${[...byScope].map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+  // The gate runs on the per-event result: where the event's own page is stricter than the venue, the event wins.
   for (const e of withPolicy) {
     if (e.decision.action === 'book') {
       const gate = allowsBookingUnasked(e.cancellation, e.startsAt);

@@ -17,7 +17,8 @@ export const findEvents = createTool({
     "Find upcoming events in the user's city that fit their taste (and the request), ranked, with a one-line reason each. " +
     'Use for "anything fun this weekend?", "jazz on Friday?", "what should I do tonight". Takes 20–60 s when it has to search the web. ' +
     'Each event has a category (music, film, comedy, …) and tags (genres/formats). Results include eventId, matches (which of their interests it fits), price as an estimate from the web (the real price is ' +
-    'checked at booking), cancellation (the venue\'s refund/cancellation policy; mention it for paid events) and decision ' +
+    'checked at booking), cancellation (refund/cancellation policy for this event; cancellationScope says whose: event = the event page, venue = venue terms, ' +
+    'platform = ticket platform default; mention it for paid events; cancellationUrl/policyUrl are links for it) and decision ' +
     '(book = confident, cheap enough and cancellable for free, so it may be booked unasked; ask = propose it first). ' +
     'Availability was re-checked live: status (on_sale, few_left = mention urgency, waitlist, not_yet_on_sale, free_rsvp, free_entry, door_only, unknown), ' +
     'bookingUrl (the page to buy/RSVP on), address, city and distanceKm from home.',

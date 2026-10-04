@@ -33,6 +33,18 @@ const STATUS_SCHEMA = {
             items: { type: 'string' },
             description: 'every date-time the page shows for this event, as local ISO 8601 incl. year (e.g. 2026-10-08T19:30); [] if none shown',
           },
+          policyText: {
+            type: 'string',
+            description:
+              'the refund / cancellation / exchange policy for buyers of THIS event, copied word for word from the page; ' +
+              'empty if the page states none (do not infer one). Not refunds for shows the organiser cancels.',
+          },
+          deadlineText: { type: 'string', description: 'the refund/cancellation deadline exactly as written (e.g. "up to 7 days before event"); empty if none' },
+          cancellationUrl: {
+            type: 'string',
+            description: 'a link shown on the page for cancelling or managing an order/registration; empty if the page shows none. Never the event page itself.',
+          },
+          policyUrl: { type: 'string', description: 'a link shown on the page to the refund / ticket policy; empty if none' },
         },
         required: ['n', 'status', 'dates'],
       },
@@ -41,7 +53,32 @@ const STATUS_SCHEMA = {
   required: ['items'],
 };
 
-type Item = { n: number; status?: string; price?: string; bookingUrl?: string; onSaleAt?: string; dates?: string[] };
+type Item = {
+  n: number;
+  status?: string;
+  price?: string;
+  bookingUrl?: string;
+  onSaleAt?: string;
+  dates?: string[];
+  policyText?: string;
+  deadlineText?: string;
+  cancellationUrl?: string;
+  policyUrl?: string;
+};
+
+/**
+ * Refund/cancellation policy as stated on this event's own page (PLAN §9). Links are kept only if they are among
+ * the page's links or literally in its text (Exa's summariser invents URLs), and never the event's own pages.
+ */
+export type EventPagePolicy = {
+  pageUrl: string;
+  policyText: string;               // verbatim; '' = the page states none
+  deadlineText: string | null;
+  cancellationUrl: string | null;
+  policyUrl: string | null;
+  rejected: string[];               // invented / unverifiable links and quotes, for logs
+  checkedAt: string;                // ISO
+};
 
 export type StatusCheck = {
   checked: boolean;                 // the page answered for this event
@@ -50,12 +87,13 @@ export type StatusCheck = {
   startConfirmed: boolean | null;   // false = the page shows another date/time: don't suggest
   bookingUrlChanged: boolean;
   priceText: string | null;
+  policy: EventPagePolicy | null;   // null = page not read, or an aggregator page (its terms aren't the seller's)
   error?: string;
 };
 
 function query(events: { e: StoredEvent; n: number }[]) {
   const list = events.map(({ e, n }) => `${n}) "${e.title}"${e.venue ? ` at ${e.venue}` : ''}, expected ${e.startLocal.replace('T', ' ')}`).join('\n');
-  return `For each of these events, if this page is about it: its number, ticket availability for that showtime, price as written, direct Buy/Register/RSVP link, on-sale date if not yet on sale, and every date-time the page lists for it. Leave out events the page does not mention.\n${list}`;
+  return `For each of these events, if this page is about it: its number, ticket availability for that showtime, price as written, direct Buy/Register/RSVP link, on-sale date if not yet on sale, every date-time the page lists for it, and the refund/cancellation policy for ticket buyers exactly as written on the page (with its deadline and any link the page shows to cancel/manage an order or to the refund policy; leave these empty if the page shows none, never guess a URL). Leave out events the page does not mention.\n${list}`;
 }
 
 /**
@@ -87,6 +125,70 @@ function better(fresh: string, current: string | null) {
   return looksBookable(fresh) && !looksBookable(current);
 }
 
+const urlKey = (u: string) => u.replace(/^https?:\/\/(www\.)?/i, '').replace(/[#?].*$/, '').replace(/\/+$/, '').toLowerCase();
+const words = (t: string) => t.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim();
+
+type Page = { text: string; links: string[] };
+
+/** `raw` if it is a real link on the page (or literally in its text) and not one of the event's own pages. */
+function verifiedLink(raw: string | undefined, page: Page, own: string[], rejected: string[], label: string): string | null {
+  const t = raw?.trim();
+  if (!t) return null;
+  const u = canonicalOrNull(t);
+  const key = u && urlKey(u);
+  if (!u || !key) return (rejected.push(`${label}: not a URL "${t.slice(0, 80)}"`), null);
+  if (own.some(o => urlKey(o) === key)) return (rejected.push(`${label}: the event page itself ${u}`), null);
+  const onPage = page.links.some(l => urlKey(l) === key) || page.text.includes(t) || page.text.includes(u);
+  if (!onPage) return (rejected.push(`${label}: not on the page ${u}`), null);
+  return u;
+}
+
+/** Is `quote` really on the page? Exact (normalised) match, or ≥80% of its words appear in the page text. */
+function quotedFrom(quote: string, page: Page): boolean {
+  if (!page.text) return true; // no text came back: can't check, the summary itself is from the page
+  const q = words(quote);
+  const text = words(page.text);
+  if (!q) return false;
+  if (text.includes(q)) return true;
+  const qs = q.split(' ').filter(w => w.length >= 3);
+  const ts = new Set(text.split(' '));
+  return qs.length > 0 && qs.filter(w => ts.has(w)).length / qs.length >= 0.8;
+}
+
+// A refund-policy line on a ticket page ("Refund Policy\nNo refunds", "Refunds up to 7 days before event").
+const POLICY_LINE = /\b(no refunds?|non-?refundable|all sales (are )?final|refunds? (up to|until|available|within|accepted|are available)|full refund|no exchanges?)\b/i;
+
+/** The page's own policy line, read from its text in code (single-event pages only, so it can't be another event's). */
+function policyLineFromText(text: string): string {
+  const lines = text.split(/\n+/).map(l => l.replace(/^[#>*\-\s]+/, '').trim()).filter(Boolean);
+  const hit = lines.find(l => l.length <= 300 && POLICY_LINE.test(l) && !/cancel(l)?ed by|if the (event|show) is (cancel|postpon)/i.test(l));
+  return hit ?? '';
+}
+
+function pagePolicy(item: Item, page: Page, e: StoredEvent, url: string, now: string, singleEvent: boolean): EventPagePolicy {
+  const rejected: string[] = [];
+  let policyText = item.policyText?.trim() ?? '';
+  let deadlineText = item.deadlineText?.trim() || null;
+  if (policyText && !quotedFrom(policyText, page)) {
+    rejected.push(`policyText not on the page: "${policyText.slice(0, 80)}"`);
+    policyText = '';
+  }
+  if (!policyText && singleEvent && page.text) {
+    policyText = policyLineFromText(page.text); // the summariser missed or paraphrased it
+    deadlineText = null;
+  }
+  const own = [url, e.url, e.pageUrl, ...(e.bookingUrl ? [e.bookingUrl] : [])];
+  return {
+    pageUrl: url,
+    policyText,
+    deadlineText: policyText ? deadlineText : null,
+    cancellationUrl: verifiedLink(item.cancellationUrl, page, own, rejected, 'cancellationUrl'),
+    policyUrl: verifiedLink(item.policyUrl, page, own, rejected, 'policyUrl'),
+    rejected,
+    checkedAt: now,
+  };
+}
+
 const isUuid = (id: string) => /^[0-9a-f-]{36}$/.test(id);
 
 /**
@@ -100,7 +202,7 @@ export async function refreshStatus<T extends StoredEvent>(
   const checks = new Map<string, StatusCheck>();
   const out = events.map(e => ({ ...e }));
   const todo = out.slice(0, MAX_EVENTS);
-  for (const e of out) checks.set(e.id, { checked: false, previous: e.status, status: e.status, startConfirmed: null, bookingUrlChanged: false, priceText: e.priceText });
+  for (const e of out) checks.set(e.id, { checked: false, previous: e.status, status: e.status, startConfirmed: null, bookingUrlChanged: false, priceText: e.priceText, policy: null });
   if (!todo.length || !process.env.EXA_API_KEY) return { events: out, checks, costDollars: 0 };
 
   // One /contents call per page, in parallel, naming only that page's events (with all ten in one query the
@@ -110,15 +212,21 @@ export async function refreshStatus<T extends StoredEvent>(
   todo.forEach((e, i) => byUrl.set(linkOf(e), [...(byUrl.get(linkOf(e)) ?? []), { e, n: i + 1 }]));
   let costDollars = 0;
   const itemsByUrl = new Map<string, Item[]>();
+  const pages = new Map<string, Page>();
   const answers = await Promise.allSettled(
     [...byUrl].map(async ([url, evs]) => {
       const res = await getExa().getContents([url], {
         maxAgeHours: opts.maxAgeHours ?? 1,
         livecrawlTimeout: opts.livecrawlTimeout ?? 15_000,
         summary: { query: query(evs), schema: STATUS_SCHEMA },
+        // Page text + links: only to verify the policy quote and the cancel/policy links the summariser returns.
+        text: { maxCharacters: 30_000 },
+        extras: { links: 200 },
       });
       costDollars += res.costDollars?.total ?? 0;
-      const summary = (res.results[0] as { summary?: unknown } | undefined)?.summary;
+      const r0 = res.results[0] as { summary?: unknown; text?: string; extras?: { links?: string[] } } | undefined;
+      pages.set(url, { text: r0?.text ?? '', links: r0?.extras?.links ?? [] });
+      const summary = r0?.summary;
       const parsed = JSON.parse(String(summary ?? '{}'));
       if (Array.isArray(parsed?.items)) itemsByUrl.set(url, parsed.items);
     }),
@@ -141,6 +249,11 @@ export async function refreshStatus<T extends StoredEvent>(
     }
     check.checked = true;
     check.startConfirmed = confirmsStart(e, item.dates);
+    if (!isAggregatorUrl(linkOf(e))) {
+      const single = byUrl.get(linkOf(e))!.length === 1;
+      check.policy = pagePolicy(item, pages.get(linkOf(e)) ?? { text: '', links: [] }, e, linkOf(e), now, single);
+      if (check.policy.rejected.length) console.info(`[events] policy check ${e.title.slice(0, 40)}: rejected ${check.policy.rejected.join('; ')}`);
+    }
     // Listing sites lag behind the box office ("on sale soon" long after it opened): trust them only over "unknown".
     const status = normaliseStatus(item.status);
     if (status !== 'unknown' && (!isAggregatorUrl(linkOf(e)) || e.status === 'unknown')) {
