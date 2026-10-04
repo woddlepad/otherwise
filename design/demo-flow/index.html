@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Otherwise · demo flow & landing checklist</title>
+<link rel="icon" href="../homepage/img/favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F3F5EF; --surface: #FFFFFF; --ink: #1C302C; --muted: #5A6B66; --line: #DCE2DA;
+    --spring: #22675A; --spring-tint: #DDEEE8; --coral: #C44F2F; --coral-tint: #F7E1D8;
+    --cream: #F6EBDD; --amber: #9A6A12; --amber-tint: #F5EBD2; --night: #10201C;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 "Host Grotesk", system-ui, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 40px 20px 80px; }
+  header { display: flex; gap: 20px; align-items: center; margin-bottom: 8px; }
+  header img { width: 72px; height: 72px; object-fit: contain; }
+  h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; margin: 0; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); margin: 6px 0 0; }
+  h2 { font-size: 22px; margin: 48px 0 6px; letter-spacing: -0.01em; }
+  h2 + p { color: var(--muted); margin: 0 0 18px; }
+  code { font: 0.86em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--line); padding: 1px 5px; border-radius: 4px; }
+  a { color: var(--spring); }
+
+  .clock { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+  .clock div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+  .clock b { display: block; font-size: 22px; }
+  .clock span { color: var(--muted); font-size: 13px; }
+  .bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 4px; width: 160px; }
+  .bar i { display: block; height: 100%; background: var(--spring); width: 0; transition: width .3s; }
+
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; white-space: nowrap; vertical-align: 2px; }
+  .landed { background: var(--spring-tint); color: var(--spring); }
+  .progress { background: var(--amber-tint); color: var(--amber); }
+  .missing { background: var(--coral-tint); color: var(--coral); }
+  .ops { background: #E4E8F3; color: #3B4C7A; }
+  .skip { background: var(--line); color: var(--muted); }
+
+  /* flow */
+  ol.flow { list-style: none; margin: 0; padding: 0; counter-reset: s; position: relative; }
+  ol.flow::before { content: ""; position: absolute; left: 17px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+  ol.flow li { counter-increment: s; position: relative; padding: 0 0 22px 54px; }
+  ol.flow li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 36px; height: 36px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 700; background: var(--surface); border: 2px solid var(--line); }
+  ol.flow li.l::before { border-color: var(--spring); color: var(--spring); }
+  ol.flow li.p::before { border-color: var(--amber); color: var(--amber); }
+  ol.flow li.m::before { border-color: var(--coral); color: var(--coral); }
+  .flow h3 { font-size: 17px; margin: 5px 0 2px; }
+  .flow p { margin: 0; color: var(--muted); }
+  .wa { display: inline-block; margin-top: 8px; background: #DCF8C6; color: #111; border-radius: 10px 10px 10px 2px; padding: 7px 11px; font-size: 14px; max-width: 520px; box-shadow: 0 1px 0 rgba(0,0,0,.06); }
+  .wa small { color: #667; }
+
+  /* checklist */
+  .group { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 6px 18px; margin-bottom: 14px; }
+  .group h3 { font-size: 16px; margin: 12px 0 4px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .group h3 .count { color: var(--muted); font-weight: 500; font-size: 13px; }
+  .item { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
+  .group h3 + .item { border-top: 0; }
+  .item input { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--spring); cursor: pointer; }
+  .item label { cursor: pointer; }
+  .item .t { font-weight: 600; }
+  .item .d { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .item.done .t { text-decoration: line-through; color: var(--muted); }
+  .item .meta { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+  .crit { color: var(--coral); font-weight: 700; font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--paper); font-size: 13px; color: var(--muted); border-top: 0; }
+  .note { background: var(--cream); border-radius: 12px; padding: 12px 16px; font-size: 14px; margin-top: 14px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
+  .filters button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 99px; padding: 4px 12px; cursor: pointer; }
+  .filters button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  footer { margin-top: 48px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="../homepage/img/capy-head.webp" alt="">
+    <div>
+      <h1>Demo flow &amp; what still has to land</h1>
+      <p class="sub">From the homepage to "I booked it" on WhatsApp. Status as of Sun 4 Oct, 15:10 PT. Submissions close at <b>16:30 PT</b>.</p>
+    </div>
+  </header>
+  <div class="clock">
+    <div><b id="left">–</b><span>until submission</span></div>
+    <div><b id="pct">0 / 0</b><span>checklist done</span><div class="bar"><i id="bar"></i></div></div>
+    <div><span class="chip landed">landed</span> <span class="chip progress">in progress</span> <span class="chip missing">missing</span> <span class="chip ops">ops / config</span></div>
+  </div>
+
+  <h2>The demo, step by step</h2>
+  <p>One continuous run on a real phone. There's no background agent for the demo: the agent starts as soon as onboarding finishes.</p>
+  <ol class="flow">
+    <li class="p">
+      <h3>Land on the homepage <span class="chip progress">CTA not wired</span></h3>
+      <p><a href="https://otherwise-homepage.vercel.app">otherwise-homepage.vercel.app</a> is live on Vercel. "Get started" has to link to the app's new phone-first entry, <code>/start</code>, on the Neon Function.</p>
+    </li>
+    <li class="m">
+      <h3>Enter phone number <span class="chip missing">missing</span></h3>
+      <p>Today a user can only start by messaging on WhatsApp. <code>/start</code> needs to take a phone number, create the user, mint the onboarding token and redirect to <code>/onboard?t=…</code>. Onboarding v2 also assumes WhatsApp comes first, so this step isn't in its plan yet.</p>
+    </li>
+    <li class="p">
+      <h3>Onboarding: Berlin, swipe about 12 events, budget <span class="chip progress">wt/onboarding</span></h3>
+      <p>The page is restyled to look like the homepage. The steps are city → starter-deck swipes → budget and auto-approve limit. Gmail/Calendar connect stays optional, and we skip it in the demo. The deck should include the Ticketeria mock events, so whatever the agent later books is something the user swiped right on.</p>
+    </li>
+    <li class="l">
+      <h3>The agent says hi on WhatsApp, unprompted <span class="chip landed">exists</span></h3>
+      <p>The <code>onboard-user</code> workflow builds the taste profile from the swipes, then <code>notify-ready</code> sends the intro. The Twilio sandbox only delivers if the phone has joined it and messaged within the last 24 hours (see Ops).</p>
+      <div class="wa">Hey Philipp 👋 just finished setting you up. You're into jazz, indie film, late shows… I'll keep an eye out. <small>15:31</small></div>
+    </li>
+    <li class="m">
+      <h3>Event search starts immediately <span class="chip missing">glue</span></h3>
+      <p>Run <code>discoverEvents</code> once, right after <code>notify-ready</code> and inside the same <code>waitUntil</code>. No job queue or hourly tick (wt/background stays out).</p>
+    </li>
+    <li class="m">
+      <h3>The agent picks a Ticketeria event and books it without asking <span class="chip missing">glue</span></h3>
+      <p>Demo rule: the top mock-shop pick that fits the auto-approve limit goes straight to <code>startBooking</code>, skipping the 0.85 taste-confidence gate. The free Indie Film Club RSVP is the safe choice. A paid event of about €9 with the <code>HACKATHON</code> credits applied is more impressive, because it shows the total check and the card being filled in.</p>
+      <div class="wa">Found something you'll like: Indie Film Club shorts, Thu 20:00. Booking it now. Watch me: otherwise…/bookings/abc/watch <small>15:33</small></div>
+    </li>
+    <li class="l">
+      <h3>A Kernel browser checks out on Ticketeria <span class="chip landed">wt/mock-booking</span></h3>
+      <p>The <code>book-event</code> steps: approve, hold, checkout sub-agent, verify total, pay with the env test card, settle. Committed on <code>wt/mock-booking</code> but <b>not on main yet</b>. The browser reaches the shop through <code>PUBLIC_URL</code>.</p>
+    </li>
+    <li class="m">
+      <h3>Watch it happen <span class="chip missing">new</span></h3>
+      <p>While the booking runs, a watch page embeds the Kernel live view (<code>browser_live_view_url</code>). Afterwards it plays the replay mp4 (<code>browsers.replays.start/stop</code>; headful only, which we already are; Kernel lists it as a paid feature).</p>
+    </li>
+    <li class="l">
+      <h3>"I booked it" <span class="chip landed">exists</span></h3>
+      <p><code>book.ts</code> already sends this through <code>tellUser</code>. Add the replay link.</p>
+      <div class="wa">✅ Booked: 1× Indie Film Club shorts (Thu 20:00). Order TKT-4821. Free, nothing charged. Tickets: … Replay: … <small>15:36</small></div>
+    </li>
+  </ol>
+
+  <h2>What still has to land</h2>
+  <p>Ticks are saved in this browser only. <span class="crit">Critical</span> marks the items the demo can't run without.</p>
+  <div class="filters" role="group" aria-label="Filter">
+    <button data-f="all" aria-pressed="true">All</button>
+    <button data-f="open" aria-pressed="false">Open</button>
+    <button data-f="crit" aria-pressed="false">Critical only</button>
+  </div>
+
+  <div id="checklist">
+    <section class="group">
+      <h3>1 · Get the code onto main <span class="count"></span></h3>
+      <div class="item" data-id="merge-mock" data-crit><input type="checkbox" id="merge-mock"><label for="merge-mock">
+        <div class="t">Merge <code>wt/mock-booking</code> → main</div>
+        <div class="d">9 commits (373ec7e), main already merged in, includes chat-tools. Fast-forward, then <code>tsc</code>.</div>
+        <div class="meta"><span class="chip landed">ready to merge</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="merge-onb" data-crit><input type="checkbox" id="merge-onb"><label for="merge-onb">
+        <div class="t">Finish, commit and merge <code>wt/onboarding</code></div>
+        <div class="d">The starter deck, deck/swipe routes and <code>src/ui/</code> are still uncommitted. It will conflict with mock-booking in <code>schema.sql</code> and <code>events/*</code>, so whichever merges second resolves.</div>
+        <div class="meta"><span class="chip progress">in progress</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="merge-am"><input type="checkbox" id="merge-am"><label for="merge-am">
+        <div class="t"><code>wt/agentmail</code>: leave out of the demo build</div>
+        <div class="d">Committed (a15cda7). A free mock booking doesn't use the agent inbox. Merge after the demo unless it's trivial.</div>
+        <div class="meta"><span class="chip skip">not needed</span></div></label></div>
+    </section>
+
+    <section class="group">
+      <h3>2 · Web onboarding <span class="count"></span></h3>
+      <div class="item" data-id="start" data-crit><input type="checkbox" id="start"><label for="start">
+        <div class="t">Phone-first entry: <code>/start</code></div>
+        <div class="d">Form: phone (E.164) → <code>upsertUserByPhone</code> → token → redirect to <code>/onboard?t=</code>. Guess the city from the prefix, the way onboarding v2 does. Style it like the homepage.</div>
+        <div class="meta"><span class="chip missing">missing</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="cta" data-crit><input type="checkbox" id="cta"><label for="cta">
+        <div class="t">Homepage CTA → <code>/start</code>, redeploy to Vercel</div>
+        <div class="d">The CTAs in <code>otherwise.html</code> point at <code>#start</code> / <code>#</code>. Redeploy through the Vercel REST API.</div>
+        <div class="meta"><span class="chip missing">missing</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="deck-mock"><input type="checkbox" id="deck-mock"><label for="deck-mock">
+        <div class="t">Put the Ticketeria events in the Berlin starter deck</div>
+        <div class="d">Mock events enter through <code>findCandidates</code> for Berlin users. Check that the starter deck picks them up, then prebuild it on prod with <code>scripts/starter-deck.ts Berlin</code>.</div>
+        <div class="meta"><span class="chip progress">verify</span></div></label></div>
+      <div class="item" data-id="no-composio"><input type="checkbox" id="no-composio"><label for="no-composio">
+        <div class="t">Onboarding completes without a Gmail/Calendar connection</div>
+        <div class="d">Untested. <code>gather-signals</code> should run on swipes, city and interests alone.</div>
+        <div class="meta"><span class="chip progress">verify</span></div></label></div>
+    </section>
+
+    <section class="group">
+      <h3>3 · The agent starts right after onboarding <span class="count"></span></h3>
+      <div class="item" data-id="first-discovery" data-crit><input type="checkbox" id="first-discovery"><label for="first-discovery">
+        <div class="t">Run discovery once after <code>notify-ready</code></div>
+        <div class="d">In <code>workflows/onboard.ts</code>, inside the existing <code>waitUntil</code>: <code>discoverEvents({ notify: false })</code>. About 20 lines, no <code>agent_jobs</code>.</div>
+        <div class="meta"><span class="chip missing">missing</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="autobook" data-crit><input type="checkbox" id="autobook"><label for="autobook">
+        <div class="t">Demo auto-book: the top mock-shop pick goes to <code>startBooking</code></div>
+        <div class="d">Behind <code>DEMO_AUTOBOOK=1</code>: skip the 0.85 confidence gate for mock-shop events within auto-approve. The booking workflow already skips approval for free and auto-approvable events.</div>
+        <div class="meta"><span class="chip missing">missing</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="msgs"><input type="checkbox" id="msgs"><label for="msgs">
+        <div class="t">Message sequence: hi → "found X, booking it" (+ watch link) → booked</div>
+        <div class="d">Three short messages, no picks list in between.</div>
+        <div class="meta"><span class="chip missing">missing</span></div></label></div>
+      <div class="item" data-id="timing"><input type="checkbox" id="timing"><label for="timing">
+        <div class="t">Whole chain under 15 min (Neon <code>waitUntil</code> limit)</div>
+        <div class="d">Onboarding analysis + discovery + Kernel checkout. Measure it in the rehearsal. If it's tight, let discovery search only the mock shop.</div>
+        <div class="meta"><span class="chip progress">verify</span></div></label></div>
+    </section>
+
+    <section class="group">
+      <h3>4 · Watch the agent in the browser <span class="count"></span></h3>
+      <div class="item" data-id="kernel-plan"><input type="checkbox" id="kernel-plan"><label for="kernel-plan">
+        <div class="t">Check that our Kernel plan allows replays</div>
+        <div class="d">The docs list replays as paid-only. One <code>replays.start</code> call on a test browser will tell us. Live view works either way.</div>
+        <div class="meta"><span class="chip ops">check</span></div></label></div>
+      <div class="item" data-id="watch"><input type="checkbox" id="watch"><label for="watch">
+        <div class="t"><code>/bookings/:id/watch</code> page</div>
+        <div class="d">While running: a live-view iframe plus step status. When done: the replay mp4, proxied (downloading needs our API key). Store the <code>replay_id</code> on the booking.</div>
+        <div class="meta"><span class="chip missing">missing</span></div></label></div>
+      <div class="item" data-id="replay"><input type="checkbox" id="replay"><label for="replay">
+        <div class="t">Record the checkout: start at checkout, stop at settle</div>
+        <div class="d">Add it in <code>book.ts</code> around the checkout sub-agent. Don't let a failed recording fail the booking.</div>
+        <div class="meta"><span class="chip missing">missing</span></div></label></div>
+    </section>
+
+    <section class="group">
+      <h3>5 · Prod config &amp; deploy <span class="count"></span></h3>
+      <div class="item" data-id="migrate" data-crit><input type="checkbox" id="migrate"><label for="migrate">
+        <div class="t">Migrate prod Neon to the full <code>db/schema.sql</code></div>
+        <div class="d">New tables: <code>mock_orders</code>, bookings changes, <code>outbound_messages</code>, <code>starter_decks</code>, suggestion reactions.</div>
+        <div class="meta"><span class="chip ops">ops</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="env" data-crit><input type="checkbox" id="env"><label for="env">
+        <div class="t"><code>.env.neon</code> + <code>neon.ts</code> passthrough</div>
+        <div class="d"><code>MOCK_SHOP=1</code>, <code>BOOKING_CARD_*</code>, <code>PUBLIC_URL</code> = Neon Function URL, <code>EXA_API_KEY</code> (missing on Neon), <code>KERNEL_API_KEY</code>, <code>DEMO_AUTOBOOK=1</code>.</div>
+        <div class="meta"><span class="chip ops">ops</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="deploy" data-crit><input type="checkbox" id="deploy"><label for="deploy">
+        <div class="t"><code>npm run deploy:neon -- --update-existing</code> from main</div>
+        <div class="d">Run <code>tsc</code> first, since other sessions may leave main mid-refactor.</div>
+        <div class="meta"><span class="chip ops">ops</span><span class="crit">Critical</span></div></label></div>
+    </section>
+
+    <section class="group">
+      <h3>6 · WhatsApp &amp; rehearsal <span class="count"></span></h3>
+      <div class="item" data-id="route" data-crit><input type="checkbox" id="route"><label for="route">
+        <div class="t">Remove the <code>dev_routes</code> entry for the demo phone</div>
+        <div class="d">+4915739645409 is routed to worktree <code>philipp</code>, so prod would forward its replies there.</div>
+        <div class="meta"><span class="chip ops">ops</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="sandbox" data-crit><input type="checkbox" id="sandbox"><label for="sandbox">
+        <div class="t">Demo phone has joined the sandbox and messaged within 24 h</div>
+        <div class="d">Free-form messages the agent sends first only arrive inside the 24-hour window. Send "hi" to the sandbox shortly before going on stage.</div>
+        <div class="meta"><span class="chip ops">ops</span><span class="crit">Critical</span></div></label></div>
+      <div class="item" data-id="reset"><input type="checkbox" id="reset"><label for="reset">
+        <div class="t">Reset the demo user between runs</div>
+        <div class="d"><code>/dev/reset-user</code> (from chat-tools) on prod, or delete the user row, so <code>/start</code> begins fresh.</div>
+        <div class="meta"><span class="chip ops">ops</span></div></label></div>
+      <div class="item" data-id="dry"><input type="checkbox" id="dry"><label for="dry">
+        <div class="t">Dry run on a <code>+1555…</code> test phone in a worktree, then one real run on prod</div>
+        <div class="d">Use <code>chat_messages</code> / <code>chat_bookings</code> / <code>mock_orders</code> to check each step. Time the whole run.</div>
+        <div class="meta"><span class="chip ops">rehearse</span></div></label></div>
+    </section>
+  </div>
+
+  <h2>Branches right now</h2>
+  <p>What's where, so nothing gets lost during the merge.</p>
+  <table>
+    <tr><th>Branch</th><th>State</th><th>For the demo</th></tr>
+    <tr><td><code>wt/mock-booking</code></td><td>9 commits ahead, main merged in, clean</td><td><span class="chip landed">merge</span> Ticketeria, book-event, chat tools</td></tr>
+    <tr><td><code>wt/onboarding</code></td><td>at main + large uncommitted diff (deck, UI, routes)</td><td><span class="chip progress">finish + merge</span> swipe onboarding</td></tr>
+    <tr><td><code>wt/agentmail</code></td><td>committed (a15cda7)</td><td><span class="chip skip">after demo</span></td></tr>
+    <tr><td><code>wt/background</code></td><td>uncommitted (hourly tick, morning picks, stop/start)</td><td><span class="chip skip">after demo</span> commit it so it isn't lost</td></tr>
+    <tr><td><code>wt/chat-tools</code></td><td>included in mock-booking</td><td><span class="chip skip">covered</span></td></tr>
+  </table>
+  <div class="note"><b>Suggested order:</b> merge mock-booking → main. In parallel, build the demo glue (<code>/start</code>, first discovery, auto-book, watch page) in a fresh worktree off that main, while onboarding v2 finishes. Then merge onboarding, migrate, set the env, deploy, rehearse.</div>
+
+  <footer>design/demo-flow/index.html · made from the worktree audit on 4 Oct 2026</footer>
+</main>
+<script>
+  const KEY = 'otherwise-demo-checklist';
+  const state = JSON.parse(localStorage.getItem(KEY) || '{}');
+  const items = [...document.querySelectorAll('.item')];
+  let filter = 'all';
+  function render() {
+    let done = 0;
+    for (const it of items) {
+      const on = !!state[it.dataset.id];
+      it.querySelector('input').checked = on;
+      it.classList.toggle('done', on);
+      if (on) done++;
+      it.hidden = (filter === 'open' && on) || (filter === 'crit' && (!('crit' in it.dataset) || on));
+    }
+    for (const g of document.querySelectorAll('.group')) {
+      const gi = [...g.querySelectorAll('.item')];
+      g.querySelector('.count').textContent = `${gi.filter(i => state[i.dataset.id]).length} / ${gi.length}`;
+      g.hidden = gi.every(i => i.hidden);
+    }
+    document.getElementById('pct').textContent = `${done} / ${items.length}`;
+    document.getElementById('bar').style.width = `${(done / items.length) * 100}%`;
+  }
+  for (const it of items) it.querySelector('input').addEventListener('change', e => {
+    state[it.dataset.id] = e.target.checked; localStorage.setItem(KEY, JSON.stringify(state)); render();
+  });
+  for (const b of document.querySelectorAll('.filters button')) b.addEventListener('click', () => {
+    filter = b.dataset.f;
+    document.querySelectorAll('.filters button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    render();
+  });
+  const deadline = Date.parse('2026-10-04T16:30:00-07:00');
+  function tick() {
+    const m = Math.round((deadline - Date.now()) / 60000);
+    document.getElementById('left').textContent = m > 0 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : 'closed';
+  }
+  tick(); setInterval(tick, 30000); render();
+</script>
+</body>
+</html>

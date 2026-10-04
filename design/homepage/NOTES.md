@@ -20,8 +20,9 @@ middle-dot meta strings, arrows on buttons, fade-up on every section (each page 
 ## Current direction: `otherwise.html` (Otherwise × Mellow)
 
 Otherwise's layout (self-filling week, book/ask/skip sliders) with the Mellow capybara: Soft 3D sits on the calendar and
-in the closing card, Pocket 3D is the logo, favicon and chat avatar. New "last week" section with real Berlin listings
-(28 Sept to 4 Oct 2026); the calendar and decision list use real listings for 12 to 18 Oct. Prices on those are examples.
+in the closing card, Pocket 3D is the logo, favicon and chat avatar. New "last week" section with real Bay Area listings
+(28 Sept to 4 Oct 2026, prices in USD); the calendar and decision list use real San Francisco listings for 12 to 18 Oct
+(checked on SF Station and venue calendars). Prices on those are examples. Times are shown 12-hour ("8:30 pm").
 Photos are Unsplash (free licence), chosen without identifiable performers so no artist is shown as someone else.
 
 Palette: a cool spring around a warm animal, so the capybara and its coral clock are what glows.
@@ -47,8 +48,18 @@ Three cards are visible, each lower one offset, scaled and tilted. Reduced motio
   (masked gradient border), inner sheen. In Chromium each panel also gets an SVG displacement map that bends the photo
   near its edges like a lens (built in JS per panel size, rebuilt on resize); other browsers keep the frosted glass. A
   blurred copy of the top card's photo glows behind the stack and crossfades on every swipe.
-- Hero: "Plan it around" Live music / Laughs / Surprise me refills the week with real 12 to 18 Oct listings, the
+- Hero: "Plan it around" Live music / Laughs / Surprise me refills the week with real 12 to 18 Oct SF listings, the
   capybara hops and comments, and the spend line updates. The event waiting for a yes has Book it / Skip buttons.
 - Phones (<760px) get a day-by-day agenda instead of the 7-column grid. Mascot images keep their proportions
   (height: auto); the closing capybara sits under the button.
 - The header class is `.site-top`, the stack's top card `.is-top` (an earlier `.top` clash caused a white strip).
+
+### Round 4 (budget on scroll)
+"How it decides" is now a pinned scroll stage (section height = ideas × 46vh + 100vh). Centre: a number wheel with the
+amount left for October; the current amount is crisp, the previous and next ones are blurred, scaled and tilted
+(rotateX) like a picker. Right: eight real 12 to 18 Oct SF listings scroll past a decision line where the capybara sits.
+Each idea gets its outcome as it crosses: booked (card fills teal, "−$39" flies to the wheel, which then rolls),
+asked (typing dots, then "You said yes" or "You passed"), or skipped (struck through, with the reason). States are a
+pure function of scroll position, so scrolling back rewinds everything; coins only fly going forward. The caption on
+the left narrates the card on the line. The sliders are hidden behind "Change the numbers"; changing them reruns the
+rule for the whole week (e.g. $80 a month leaves $3 and skips the Sunday shows).

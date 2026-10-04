@@ -12,7 +12,7 @@
 <style>
   /* Otherwise × Mellow. The calendar is the product; the capybara is the companion.
      Palette: a cool spring (sage paper, pine ink, spring teal) so the warm capybara and its coral clock are what glows.
-     One dark band (last week's picks) where the event photos and liquid-glass cards carry the colour. */
+     One dark band (last week's picks) where the event photos and liquid-glass cards carry the color. */
   :root {
     --paper: #F3F5EF;       /* sage-tinted paper */
     --surface: #FFFFFF;
@@ -260,29 +260,92 @@
   .count b { color: #fff; font-weight: 600; }
   .hint { margin: -1.25rem 0 0; font-size: .85rem; color: #7F958E; }
 
-  /* ---------- the decision explorer ---------- */
-  .decide { background: var(--surface); }
-  .decide-grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr); gap: 4rem; align-items: start; }
-  .controls { margin-top: 2.5rem; display: grid; gap: 2rem; }
-  .control label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; margin-bottom: .6rem; }
-  .control output { font-size: 1.6rem; letter-spacing: -.03em; font-weight: 600; }
-  .control small { display: block; color: var(--muted); font-size: .9rem; margin-top: .5rem; }
+  /* ---------- the budget, on scroll: a number wheel and a stream of ideas meeting it ---------- */
+  .budget { position: relative; height: calc(var(--steps, 8) * 46vh + 100vh); background: var(--paper); border-top: 1px solid var(--line); }
+  .budget-stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+  .budget-grid { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, .75fr) minmax(0, 1.15fr); gap: 2.5rem; align-items: center; height: 100%; }
+  .budget-copy { position: relative; z-index: 3; }
+  .budget-copy h2.big { font-size: clamp(2.2rem, 3.8vw, 3.4rem); }
+  .caption { margin: 1.4rem 0 0; font-size: 1.12rem; color: var(--muted); max-width: 34ch; min-height: 5.2em; }
+  .caption b { color: var(--ink); font-weight: 600; }
+  .caption.swap { animation: pop .3s ease-out both; }
+
+  .tune { position: relative; margin-top: 1.5rem; }
+  .tune-btn { display: inline-flex; align-items: center; gap: .5rem; }
+  .tune-btn svg { width: 16px; height: 16px; }
+  .tune-panel {
+    position: absolute; z-index: 5; left: 0; top: calc(100% + .6rem); width: min(340px, 86vw);
+    background: var(--surface); border-radius: 18px; padding: 1.25rem 1.25rem 1.1rem;
+    box-shadow: 0 1px 0 var(--line), 0 24px 50px -20px rgba(28, 48, 44, .35);
+    display: grid; gap: 1.4rem;
+    animation: pop .25s ease-out both;
+  }
+  .tune-panel[hidden] { display: none; }
+  .control label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: .95rem; margin-bottom: .55rem; }
+  .control output { font-size: 1.3rem; letter-spacing: -.03em; font-weight: 600; }
+  .control small { display: block; color: var(--muted); font-size: .85rem; margin-top: .45rem; }
   input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 99px; background: linear-gradient(var(--spring), var(--spring)) 0 / var(--p, 50%) 100% no-repeat, var(--line); cursor: pointer; }
   input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 2px var(--spring), 0 2px 6px rgba(28, 48, 44, .2); }
   input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border: 0; border-radius: 50%; background: var(--surface); box-shadow: 0 0 0 2px var(--spring), 0 2px 6px rgba(28, 48, 44, .2); }
-  .ideas { background: var(--paper); border-radius: var(--radius-l); padding: .5rem 1.75rem; }
-  .ideas ul { list-style: none; margin: 0; padding: 0; }
-  .ideas li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem 1.5rem; padding-block: 1.15rem; border-bottom: 1px solid var(--line); }
-  .ideas li:last-child { border-bottom: 0; }
-  .ideas .t { font-weight: 600; font-size: 1.08rem; letter-spacing: -.01em; }
-  .ideas .meta { color: var(--muted); font-size: .92rem; grid-column: 1; }
-  .ideas .why { font-size: .92rem; grid-column: 1 / -1; }
-  .verdict { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: .9rem; font-weight: 600; padding: .35rem .8rem; border-radius: 999px; white-space: nowrap; }
-  .verdict.book { background: var(--spring); color: #fff; }
-  .verdict.ask { background: var(--spring-tint); color: var(--spring-deep); box-shadow: inset 0 0 0 1.5px var(--spring); }
-  .verdict.skip { background: #E6EBE4; color: var(--muted); }
-  .ideas li.is-skip .t { color: var(--muted); }
-  .ideas-note { font-size: .85rem; color: var(--muted); margin: .9rem .25rem 0; }
+
+  /* the wheel: the current amount crisp in the middle, the amounts before and after it blurred and tilted away */
+  .wheel-col { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center; container-type: inline-size; }
+  .wheel-label, .wheel-sub { font-size: .95rem; color: var(--muted); }
+  .wheel-sub { max-width: 18ch; line-height: 1.4; }
+  /* a 3-digit amount ("$120", "$300") is ~2.4em wide: cap the size at 39% of the column so the "$" never spills out of it */
+  .wheel { position: relative; width: 100%; font-size: min(clamp(4.6rem, 8.6vw, 8.4rem), 39cqi); height: 2.9em; perspective: 700px; margin: .1rem 0 .2rem; }
+  .wheel span {
+    position: absolute; left: 0; right: 0; top: 50%; height: 1em; margin-top: -.5em;
+    font-weight: 600; letter-spacing: -.055em; line-height: 1; white-space: nowrap;
+    transition: transform .75s cubic-bezier(.2, .9, .25, 1.12), filter .6s ease, opacity .6s ease, color .4s;
+    will-change: transform, filter;
+  }
+  .wheel span.now { color: var(--ink); }
+  .wheel span.low { color: var(--coral); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* the stream of ideas */
+  /* the mask clips everything to the stream's box, so the box reaches --gutter to the left of the cards' column
+     (into the grid gap) to leave room for the capybara and its shadow on the decision line */
+  .stream { --gutter: 22px; position: relative; height: 100%; margin-left: calc(-1 * var(--gutter)); -webkit-mask: linear-gradient(transparent, #000 20%, #000 80%, transparent); mask: linear-gradient(transparent, #000 20%, #000 80%, transparent); }
+  .track { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0 0 0 var(--gutter); }
+  .idea {
+    --h: 108px;
+    position: absolute; left: 34px; right: 0; top: 0; height: var(--h);
+    display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) auto; gap: .9rem; align-items: center;
+    padding: .8rem 1rem .8rem 1.1rem; border-radius: 16px; background: var(--surface); color: var(--ink);
+    box-shadow: 0 1px 0 var(--line), 0 12px 24px -20px rgba(28, 48, 44, .5);
+    isolation: isolate; overflow: hidden; will-change: transform, opacity;
+    transition: color .35s, box-shadow .35s;
+  }
+  .idea::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--spring); transform: scaleX(0); transform-origin: left; transition: transform .5s cubic-bezier(.6, 0, .2, 1); }
+  .idea.booked { color: #fff; }
+  .idea.booked::before { transform: scaleX(1); }
+  .idea .when { font-size: .8rem; line-height: 1.25; color: var(--muted); transition: color .35s; }
+  .idea .when b { display: block; font-size: 1.05rem; color: var(--ink); font-weight: 600; transition: color .35s; }
+  .idea.booked .when, .idea.booked .when b { color: rgba(255, 255, 255, .85); }
+  .idea .what { min-width: 0; }
+  .idea .what b { display: block; font-weight: 600; font-size: 1.06rem; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .idea .what span { display: block; font-size: .88rem; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .idea .why { display: block; font-size: .84rem; margin-top: .2rem; opacity: 0; transform: translateY(4px); transition: opacity .3s, transform .3s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .idea:not(.up) .why { opacity: .9; transform: none; }
+  .idea .state { display: flex; flex-direction: column; align-items: flex-end; gap: .35rem; }
+  .idea .price { font-weight: 600; font-size: 1.1rem; letter-spacing: -.02em; }
+  .chip { font-size: .78rem; font-weight: 600; padding: .2rem .6rem; border-radius: 999px; white-space: nowrap; display: none; align-items: center; gap: .3rem; }
+  .idea.asking .chip.ask, .idea.booked .chip.ok, .idea.skipped .chip.skip, .idea.passed .chip.pass { display: inline-flex; animation: pop .3s ease-out both; }
+  .chip.ask { background: var(--spring-tint); color: var(--spring-deep); }
+  .chip.ask i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: blink 1s infinite; }
+  .chip.ask i:nth-child(2) { animation-delay: .15s; } .chip.ask i:nth-child(3) { animation-delay: .3s; }
+  @keyframes blink { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+  .chip.ok { background: rgba(255, 255, 255, .18); color: #fff; }
+  .chip.ok::before { content: ""; width: 12px; height: 12px; border-radius: 50%; background: var(--cream) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M3 6.2l2 2 4-4.4' fill='none' stroke='%2322675A' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat; }
+  .chip.skip, .chip.pass { background: #E6EBE4; color: var(--muted); }
+  .idea.skipped, .idea.passed { color: var(--muted); }
+  .idea.skipped .what b, .idea.passed .what b { text-decoration: line-through; text-decoration-thickness: 1.5px; text-decoration-color: rgba(90, 107, 102, .6); }
+  .idea.booked .price.paid::before { content: "−"; }
+  /* the capybara sits on the decision line, watching the card in front of it */
+  .decider { position: absolute; z-index: 2; left: calc(var(--gutter) - 6px); top: 50%; width: 34px; height: 34px; margin-top: -17px; filter: drop-shadow(0 4px 6px rgba(28, 48, 44, .25)); }
+  .fly { position: fixed; z-index: 50; pointer-events: none; font-weight: 700; font-size: 1.15rem; color: var(--coral); background: var(--surface); padding: .2rem .55rem; border-radius: 999px; box-shadow: 0 8px 20px -8px rgba(28, 48, 44, .5); }
 
   /* ---------- steps: a true sequence ---------- */
   .steps { list-style: none; padding: 0; margin: 4rem 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3rem; counter-reset: s; }
@@ -316,7 +379,12 @@
     .week-bar { padding-right: 200px; }
   }
   @media (max-width: 960px) {
-    .hero-head, .decide-grid, .trust-grid, .picks-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+    .hero-head, .trust-grid, .picks-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+    .budget-grid { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); grid-template-rows: auto 1fr; gap: 0 2rem; padding-block: 2rem 0; }
+    .budget-copy { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: flex-end; gap: 1.5rem; }
+    .caption { display: none; }
+    .tune { margin-top: 0; }
+    .tune-panel { left: auto; right: 0; }
     .steps { grid-template-columns: 1fr; gap: 2.25rem; }
     .steps li:not(:last-child)::after { display: none; }
   }
@@ -351,10 +419,16 @@
     .picks-note { display: none; }
     .stack { height: 500px; width: calc(100% - 40px); }
     .deck { gap: 1.75rem; }
-    .ideas { padding: .25rem 1.1rem; }
-    .ideas li { grid-template-columns: minmax(0, 1fr); }
-    .verdict { grid-row: auto; grid-column: 1; justify-self: start; }
-    .controls { margin-top: 1.75rem; }
+    .budget-grid { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(0, 1fr); padding-top: 1.25rem; }
+    .budget-copy { flex-direction: column; align-items: flex-start; gap: .75rem; }
+    .budget-copy h2.big { font-size: 1.9rem; }
+    .wheel { font-size: min(4.4rem, 39cqi); height: 2.5em; }
+    .wheel-label, .wheel-sub { font-size: .85rem; }
+    .wheel-sub { max-width: none; }
+    .idea { --h: 96px; left: 26px; grid-template-columns: 2.6rem minmax(0, 1fr) auto; gap: .6rem; padding: .7rem .8rem; }
+    .idea .what b { font-size: .98rem; }
+    .stream { --gutter: 16px; }
+    .decider { width: 28px; height: 28px; margin-top: -14px; left: calc(var(--gutter) - 4px); }
     .steps { margin-top: 2.5rem; }
     .facts { grid-template-columns: 1fr; gap: 1.75rem; }
     .trust-grid { gap: 2rem; }
@@ -364,7 +438,8 @@
     .close .btn { width: 100%; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .ev.booked, .ev.asked, .ev > *, .ag, .mascot, .say, .chat p, .col .note { animation: none !important; }
+    .ev.booked, .ev.asked, .ev > *, .ag, .mascot, .say, .chat p, .col .note, .chip { animation: none !important; }
+    .wheel span, .idea::before { transition-duration: .01s; }
     .card, .card.flying { transition: opacity .2s ease; }
     .glow img { transition: opacity .3s; }
   }
@@ -432,10 +507,10 @@
     <div class="wrap picks-grid">
       <div class="picks-copy">
         <h2 class="big" id="picks-h">Last week, you could have gone to all of this.</h2>
-        <p class="sub">Real Berlin listings from 28 September to 4 October, picked for someone who likes indie bands, English stand-up and anything within walking distance. Swipe through them. Every swipe teaches it a little more about you.</p>
+        <p class="sub">Real Bay Area listings from 28 September to 4 October, picked for someone who likes folk and indie, stand-up and anything within walking distance. Swipe through them. Every swipe teaches it a little more about you.</p>
         <div class="chat">
           <img src="img/capy-head.webp" alt="" width="56" height="56">
-          <p id="capy-says" aria-live="polite">Two of these are still on. The pumpkin festival is free and ends tonight.</p>
+          <p id="capy-says" aria-live="polite">One of these is still on: the Oakland club weekender runs until 10 tonight.</p>
         </div>
         <p class="picks-note">Photos are illustrative, from Unsplash.</p>
       </div>
@@ -443,39 +518,39 @@
       <div class="deck">
         <div class="glow" id="glow" aria-hidden="true"></div>
         <div class="stack" id="stack" tabindex="0" role="group" aria-roledescription="card stack" aria-label="Last week's picks. Use the left and right arrow keys to go through them.">
-          <article class="card" data-yes="Noted. I'll watch for more indie bands like Death Cab." data-no="Got it. Fewer big indie shows.">
+          <article class="card" data-yes="Noted. I'll watch for more folk duos like Welch and Rawlings." data-no="Got it. Fewer big folk shows.">
             <img src="img/green-crowd.jpg" alt="A crowd under green stage lights" draggable="false">
-            <div class="chips"><span class="pill glass">Thu 1 Oct, 20:00</span></div>
+            <div class="chips"><span class="pill glass">Fri 2 Oct, 8 pm</span></div>
             <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
-            <div class="panel glass"><h3>Death Cab for Cutie</h3><span class="where">Columbiahalle, Tempelhof</span>
-              <p class="why"><b>Best match.</b> You've bought tickets to see them twice, and Thursday was empty.</p></div>
+            <div class="panel glass"><h3>Gillian Welch &amp; David Rawlings</h3><span class="where">The Fillmore, Western Addition</span>
+              <p class="why"><b>Best match.</b> You've bought tickets to see them twice, and Friday was empty.</p></div>
           </article>
-          <article class="card" data-yes="More English stand-up, coming up." data-no="Okay, I'll ease off the comedy.">
+          <article class="card" data-yes="More stand-up, coming up." data-no="Okay, I'll ease off the comedy.">
             <img src="img/comedy.jpg" alt="A microphone in front of a red curtain" draggable="false">
-            <div class="chips"><span class="pill glass">Fri 2 Oct</span></div>
+            <div class="chips"><span class="pill glass">Sat 3 Oct</span></div>
             <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
-            <div class="panel glass"><h3>English Comedy Showcase, with pizza</h3><span class="where">Comedy Club Kookaburra, from €27.95</span>
-              <p class="why">You go to English stand-up about once a month.</p></div>
+            <div class="panel glass"><h3>Cheaper Than Therapy, stand-up</h3><span class="where">Shelton Theater, Union Square, $25</span>
+              <p class="why">You go to stand-up about once a month.</p></div>
           </article>
-          <article class="card" data-yes="Lovely. More quiet, electronic gigs like Laura Misch." data-no="Noted. Fewer ambient sets.">
+          <article class="card" data-yes="Lovely. More quiet, intimate gigs like Mari Froes." data-no="Noted. Fewer quiet sets.">
             <img src="img/crowd.jpg" alt="A large crowd facing a lit stage" draggable="false" style="object-position: center 85%">
-            <div class="chips"><span class="pill glass">Fri 2 Oct</span></div>
+            <div class="chips"><span class="pill glass">Thu 1 Oct</span></div>
             <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
-            <div class="panel glass"><h3>Laura Misch</h3><span class="where">Heimathafen Neukölln</span>
+            <div class="panel glass"><h3>Mari Froes</h3><span class="where">The Independent, NoPa</span>
               <p class="why">She's in the playlist you open most on Sunday mornings.</p></div>
           </article>
           <article class="card" data-yes="Late nights it is. I'll keep an eye on the clubs." data-no="Got it, no club nights.">
             <img src="img/club.jpg" alt="A DJ playing in a dark club under red light" draggable="false">
-            <div class="chips"><span class="pill glass">3 to 11 Oct</span><span class="pill glass hot">Still on</span></div>
+            <div class="chips"><span class="pill glass">2 to 4 Oct</span><span class="pill glass hot">Ends tonight</span></div>
             <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
-            <div class="panel glass"><h3>Club Culture Day week</h3><span class="where">Clubs across Berlin</span>
-              <p class="why">You opened every newsletter from your favourite club this year.</p></div>
+            <div class="panel glass"><h3>Parameter x SQUISH Weekender</h3><span class="where">The Loom, Oakland</span>
+              <p class="why">You opened every newsletter from Parameter this year.</p></div>
           </article>
-          <article class="card" data-yes="Free and close by. I'll find more of those." data-no="Okay, fewer street festivals.">
+          <article class="card" data-yes="Free and close by. I'll find more of those." data-no="Okay, fewer neighborhood festivals.">
             <img src="img/pumpkins.jpg" alt="Crates of pumpkins and gourds at a market" draggable="false">
-            <div class="chips"><span class="pill glass">Sat 3 and Sun 4 Oct</span><span class="pill glass hot">Ends tonight</span></div>
+            <div class="chips"><span class="pill glass">Sat 3 Oct, 2 to 5 pm</span></div>
             <span class="stamp yes glass">More like this</span><span class="stamp no glass">Not for me</span>
-            <div class="panel glass"><h3>Schöneberger Kürbisfest</h3><span class="where">Akazienkiez, free</span>
+            <div class="panel glass"><h3>Harvest Fest, Salesforce Park</h3><span class="where">Pumpkin patch, SoMa, free</span>
               <p class="why">Ten minutes' walk from you, and it costs nothing.</p></div>
           </article>
         </div>
@@ -493,26 +568,44 @@
     </div>
   </section>
 
-  <section class="decide" id="decide" aria-labelledby="decide-h">
-    <div class="wrap decide-grid">
-      <div>
-        <h2 class="big" id="decide-h">You set two numbers. It follows them.</h2>
-        <p class="sub">Every idea gets a price and a score for how sure it is you'll go. A fixed rule, not the AI, decides what happens next. Try it.</p>
-        <div class="controls">
-          <div class="control">
-            <label for="monthly">Monthly budget <output id="monthly-out" for="monthly">€120</output></label>
-            <input id="monthly" type="range" min="20" max="300" step="10" value="120">
+  <section class="budget" id="decide" aria-labelledby="decide-h">
+    <div class="budget-stage">
+      <div class="wrap budget-grid">
+        <div class="budget-copy">
+          <div>
+            <h2 class="big" id="decide-h">You set two numbers. It follows them.</h2>
+            <p class="caption" id="caption" aria-live="polite"></p>
           </div>
-          <div class="control">
-            <label for="surprise">Book without asking up to <output id="surprise-out" for="surprise">€25</output></label>
-            <input id="surprise" type="range" min="0" max="100" step="5" value="25">
-            <small>Anything above this, it texts you first.</small>
+          <div class="tune">
+            <button class="btn quiet small tune-btn" type="button" id="tune-btn" aria-expanded="false" aria-controls="tune">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 4.5h7M12 4.5h2M2 11.5h2M7 11.5h7"/><circle cx="10.5" cy="4.5" r="1.6"/><circle cx="5.5" cy="11.5" r="1.6"/></svg>
+              Change the numbers
+            </button>
+            <div class="tune-panel" id="tune" hidden>
+              <div class="control">
+                <label for="monthly">Monthly budget <output id="monthly-out" for="monthly">$120</output></label>
+                <input id="monthly" type="range" min="20" max="300" step="10" value="120">
+              </div>
+              <div class="control">
+                <label for="surprise">Book without asking up to <output id="surprise-out" for="surprise">$25</output></label>
+                <input id="surprise" type="range" min="0" max="100" step="5" value="25">
+                <small>Anything above this, it texts you first.</small>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <div>
-        <div class="ideas" aria-live="polite"><ul id="ideas"></ul></div>
-        <p class="ideas-note">Real listings for 12 to 18 October. Prices are examples.</p>
+
+        <div class="wheel-col">
+          <span class="wheel-label">Left for October</span>
+          <div class="wheel" id="wheel" aria-hidden="true"></div>
+          <span class="sr" id="wheel-sr" aria-live="polite"></span>
+          <span class="wheel-sub" id="wheel-sub"></span>
+        </div>
+
+        <div class="stream" aria-label="This week's ideas, decided one by one">
+          <ol class="track" id="track"></ol>
+          <img class="decider" src="img/capy-head.webp" alt="" width="34" height="34">
+        </div>
       </div>
     </div>
   </section>
@@ -551,7 +644,7 @@
 </main>
 
 <footer>
-  <div class="wrap"><span>Otherwise, Berlin</span><span>Stop any time by texting “stop”.</span></div>
+  <div class="wrap"><span>Otherwise, San Francisco</span><span>Stop any time by texting “stop”.</span></div>
 </footer>
 
 <script>
@@ -560,48 +653,50 @@
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ================= the week (hero) =================
-     Hours are offsets from 17:00 (s = start, d = duration). Everything below is a real Berlin listing for 12 to 18 October 2026. */
+     Hours are offsets from 5 pm (s = start, d = duration). Everything below is a real San Francisco listing for 12 to 18 October 2026
+     (checked on SF Station and venue calendars); prices are examples. */
   const DAYS = [['Mon', 12, 'Monday'], ['Tue', 13, 'Tuesday'], ['Wed', 14, 'Wednesday'], ['Thu', 15, 'Thursday'], ['Fri', 16, 'Friday'], ['Sat', 17, 'Saturday'], ['Sun', 18, 'Sunday']];
   const BUDGET = 120;
   const MINE = [
-    { day: 0, s: 1.5, d: 1.5, t: 'Climbing', m: 'Berta Block' },
-    { day: 1, s: 2, d: 3.5, t: "Dinner at Lea's", m: 'Kreuzberg' },
+    { day: 0, s: 1.5, d: 1.5, t: 'Climbing', m: 'Mission Cliffs' },
+    { day: 1, s: 2, d: 3.5, t: "Dinner at Lea's", m: 'the Mission' },
     { day: 3, s: 0, d: 1.25, t: 'Call with Sam' },
-    { day: 6, s: 0, d: 2, t: "Mum's birthday", m: 'video call' },
+    { day: 6, s: 0, d: 2, t: "Mom's birthday", m: 'video call' },
   ];
   const MOODS = {
     music: {
       say: 'Found you <b>three good evenings</b> this week. Wednesday I left free on purpose.',
       quiet: { 2: 'Nothing worth leaving the sofa for.' },
       picks: [
-        { day: 3, k: 'booked', s: 3, d: 2.5, t: 'Cat Power', m: "Huxley's Neue Welt", price: 39, tag: 'You said yes' },
-        { day: 4, k: 'booked', s: 2.5, d: 1.75, t: 'Festival of Lights walk', m: 'Mitte, free', price: 0, tag: 'Added for you' },
-        { day: 5, k: 'asked', s: 3, d: 2.5, t: 'Giant Rooks', m: 'Max-Schmeling-Halle, €38', price: 38 },
-        { day: 6, k: 'booked', s: 3, d: 2.5, t: 'Band of Horses', m: 'ASTRA Kulturhaus', price: 36, tag: 'You said yes' },
+        { day: 3, k: 'booked', s: 3, d: 2.5, t: 'Kelsey Lu', m: 'Great American Music Hall', price: 39, tag: 'You said yes' },
+        { day: 4, k: 'booked', s: 2.5, d: 1.75, t: 'Fort Mason Night Market', m: 'Fort Mason, free', price: 0, tag: 'Added for you' },
+        { day: 5, k: 'asked', s: 3.5, d: 2.5, t: 'Jessie Ware', m: 'The Warfield, $38', price: 38 },
+        { day: 6, k: 'booked', s: 3, d: 2.5, t: 'The Wallflowers', m: 'The Fillmore', price: 36, tag: 'You said yes' },
       ],
     },
     laughs: {
-      say: 'Three nights of <b>English stand-up</b>. Two are free, and one is on a boat.',
+      say: 'Three nights of <b>stand-up</b>. One is free, in a pub out in the Richmond.',
       quiet: { 5: 'Saturday is kept free for a lie-in.' },
       picks: [
-        { day: 0, k: 'asked', s: 3.25, d: 1.75, t: 'MASS Debate', m: 'Süss war gestern, free', price: 0 },
-        { day: 3, k: 'booked', s: 3.5, d: 2.5, t: 'Laughing Spree', m: 'Comedy on a boat, Friedrichshain', price: 17, tag: 'A surprise, €17' },
-        { day: 4, k: 'booked', s: 2.5, d: 1.5, t: 'Pimp My Jokes', m: 'Mein Freund Harvey, free', price: 0, tag: 'Added for you' },
+        { day: 0, k: 'asked', s: 3, d: 1.75, t: 'Mirthquake', m: 'Abbey Tavern, free', price: 0 },
+        { day: 3, k: 'booked', s: 2.75, d: 1.75, t: 'Cheaper Than Therapy', m: 'Shelton Theater, $25', price: 25, tag: 'A surprise, $25' },
+        { day: 6, k: 'booked', s: 2.5, d: 1.75, t: 'SF Comedy Showcase', m: 'Punch Line SF', price: 17, tag: 'Added for you' },
       ],
     },
     surprise: {
-      say: 'Something different: <b>Mongolian folk metal</b>, a cult rock band and a city lit up.',
+      say: 'Something different: <b>Japanese reggae metal</b>, Taiwanese indie and a night market.',
       quiet: { 2: 'Wednesday is for doing nothing.' },
       picks: [
-        { day: 3, k: 'booked', s: 3.5, d: 2.5, t: 'Tito & Tarantula', m: 'SO36, Kreuzberg', price: 32, tag: 'You said yes' },
-        { day: 4, k: 'booked', s: 2.5, d: 1.75, t: 'Festival of Lights walk', m: 'Mitte, free', price: 0, tag: 'Added for you' },
-        { day: 6, k: 'asked', s: 3, d: 2.5, t: 'The Hu', m: 'Columbiahalle, €45', price: 45 },
+        { day: 3, k: 'booked', s: 3, d: 2.5, t: 'SiM', m: 'August Hall', price: 32, tag: 'You said yes' },
+        { day: 4, k: 'booked', s: 2.5, d: 1.75, t: 'Fort Mason Night Market', m: 'Fort Mason, free', price: 0, tag: 'Added for you' },
+        { day: 6, k: 'asked', s: 3, d: 2.5, t: 'Sunset Rollercoaster', m: 'The Warfield, $45', price: 45 },
       ],
     },
   };
   let mood = 'music';
   let picks = MOODS.music.picks.map(p => ({ ...p }));
-  const clock = s => { const m = Math.round((17 + s) * 60); return `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+  const ampm = h => `${h % 12 || 12} ${h % 24 < 12 ? 'am' : 'pm'}`;
+  const clock = s => { const m = Math.round((17 + s) * 60), [h, a] = ampm(Math.floor(m / 60)).split(' '); return m % 60 ? `${h}:${String(m % 60).padStart(2, '0')} ${a}` : `${h} ${a}`; };
 
   function blockHTML(p, i, base) {
     const tail = p.k === 'asked'
@@ -614,7 +709,7 @@
     picks.forEach((p, i) => { if (p.order === undefined) p.order = i; });
     // grid
     let g = '<div></div>' + DAYS.map(([d, n]) => `<div class="day-h"><span class="dow">${d}</span><span class="dom">${n}</span></div>`).join('');
-    g += '<div class="gutter">' + [18, 19, 20, 21, 22, 23].map((h, i) => `<span style="top:${(i + 1) / 7 * 100}%">${h}:00</span>`).join('') + '</div>';
+    g += '<div class="gutter">' + [18, 19, 20, 21, 22, 23].map((h, i) => `<span style="top:${(i + 1) / 7 * 100}%">${ampm(h)}</span>`).join('') + '</div>';
     DAYS.forEach((_, di) => {
       const mine = MINE.filter(e => e.day === di).map(e => `<div class="ev mine" style="--s:${e.s};--d:${e.d}"><b>${esc(e.t)}</b>${e.m ? `<span class="m">${esc(e.m)}</span>` : ''}</div>`).join('');
       const mineP = picks.map((p, i) => [p, i]).filter(([p]) => p.day === di).map(([p, i]) => {
@@ -642,7 +737,7 @@
     }).join('');
     // money
     const booked = picks.filter(p => p.k === 'booked').reduce((a, p) => a + p.price, 0);
-    $('spend').innerHTML = `<b>€${booked}</b> booked this week, €${BUDGET - booked} left for October`;
+    $('spend').innerHTML = `<b>$${booked}</b> booked this week, $${BUDGET - booked} left for October`;
   }
 
   const say = $('say'), mascot = $('mascot');
@@ -700,37 +795,168 @@
   say.classList.remove('swap');  // the first message waits for the intro animation
   renderWeek();
 
-  /* ================= how it decides (mirrors src/lib/policy.ts: auto-book at 0.85, ask from 0.6) ================= */
+  /* ================= the budget, on scroll =================
+     The rule mirrors src/lib/policy.ts: calendar clash, then budget, then confidence (ask from 0.6, book unasked from 0.85
+     and within the surprise limit). Real San Francisco listings for 12 to 18 October; prices are examples. */
   (() => {
-    const AUTO = 0.85, ASK = 0.6;
-    const ideas = [
-      { t: 'Festival of Lights walk', meta: 'Mitte, Fri 19:30', price: 0, sure: .88, busy: null },
-      { t: 'Laughing Spree', meta: 'Comedy on a boat, Thu 20:30', price: 17, sure: .9, busy: null },
-      { t: 'Cat Power', meta: "Huxley's Neue Welt, Thu 20:00", price: 39, sure: .93, busy: null },
-      { t: 'Giant Rooks', meta: 'Max-Schmeling-Halle, Sat 20:00', price: 38, sure: .74, busy: null },
-      { t: 'Honne', meta: 'Holzmarkt Säälchen, Tue 20:00', price: 35, sure: .89, busy: "Dinner at Lea's" },
-      { t: 'Haftbefehl', meta: 'Max-Schmeling-Halle, Sun 20:30', price: 69, sure: .22, busy: null },
+    const AUTO = 0.85, ASK = 0.6, STEP_VH = 46;
+    const IDEAS = [
+      { d: 'Mon 12', h: '8 pm', t: 'Mirthquake', v: 'Abbey Tavern, comedy', price: 0, sure: .86 },
+      { d: 'Tue 13', h: '8 pm', t: 'Zolita', v: 'Rickshaw Stop', price: 35, sure: .89, busy: "dinner at Lea's" },
+      { d: 'Thu 15', h: '8 pm', t: 'Kelsey Lu', v: 'Great American Music Hall', price: 39, sure: .93, answer: 'yes' },
+      { d: 'Fri 16', h: '7:30 pm', t: 'Fort Mason Night Market', v: 'Fort Mason', price: 0, sure: .88 },
+      { d: 'Fri 16', h: '8 pm', t: 'Sara Bareilles', v: 'Bill Graham Civic', price: 59, sure: .28 },
+      { d: 'Sat 17', h: '8:30 pm', t: 'Jessie Ware', v: 'The Warfield', price: 38, sure: .74, answer: 'yes' },
+      { d: 'Sun 18', h: '7:30 pm', t: 'SF Comedy Showcase', v: 'Punch Line SF', price: 17, sure: .9 },
+      { d: 'Sun 18', h: '8 pm', t: 'The Wallflowers', v: 'The Fillmore', price: 36, sure: .9, answer: 'yes' },
     ];
-    const monthly = $('monthly'), surprise = $('surprise');
-    function decide(x, left, auto) {
-      if (x.busy) return ['skip', `You're busy: ${x.busy}.`];
-      if (x.price > left) return ['skip', `Only €${left} left this month.`];
-      if (x.sure < ASK) return ['skip', 'Not much like what you usually go to.'];
-      if (x.sure >= AUTO && x.price <= auto) return ['book', x.price ? `A strong match, and under your €${auto} limit.` : 'A strong match, and free.'];
-      return ['ask', x.price > auto ? `Over your €${auto} limit, so it asks first.` : 'A good match, but not sure enough to book unasked.'];
+    const N = IDEAS.length;
+    const sec = $('decide'), track = $('track'), wheel = $('wheel'), caption = $('caption'), sub = $('wheel-sub');
+    sec.style.setProperty('--steps', N);
+    let budget = 120, limit = 25, plan = [], values = [], lastP = -1, wheelIdx = 0, captionKey = '';
+
+    // the decision for each idea, in order, with the money left at that point
+    function compute() {
+      let left = budget;
+      plan = IDEAS.map(x => {
+        let v, why;
+        if (x.busy) { v = 'skip'; why = `Clashes with ${x.busy}.`; }
+        else if (x.price > left) { v = 'skip'; why = `Only $${left} left this month.`; }
+        else if (x.sure < ASK) { v = 'skip'; why = 'Not much like what you go to.'; }
+        else if (x.sure >= AUTO && x.price <= limit) { v = 'book'; why = x.price ? `Under your $${limit} limit, a strong match.` : 'Free, and a strong match.'; }
+        else { v = 'ask'; why = x.price > limit ? `Over your $${limit} limit, so it asked.` : 'Good match, so it asked first.'; }
+        const final = v === 'book' || (v === 'ask' && x.answer === 'yes') ? 'booked' : v === 'ask' ? 'passed' : 'skipped';
+        if (final === 'booked') left -= x.price;
+        return { v, why, final, left };
+      });
+      values = [budget, ...new Set(plan.filter(p => p.final === 'booked').map(p => p.left))].filter((x, i, a) => i === 0 || x !== a[i - 1]);
     }
-    const label = { book: 'Books it', ask: 'Asks you', skip: 'Skips it' };
-    function render() {
+
+    function sentence(i, state) {
+      const x = IDEAS[i], p = plan[i], cost = x.price ? `$${x.price}` : 'free';
+      if (p.v === 'skip') {
+        if (x.busy) return `<b>${x.t}</b> clashes with ${x.busy}, so it skipped it.`;
+        if (x.price > (i ? plan[i - 1].left : budget)) return `<b>${x.t}</b> is ${cost}, but only $${i ? plan[i - 1].left : budget} is left. It let it go.`;
+        return `<b>${x.t}</b> isn't much like what you go to, so it skipped it.`;
+      }
+      if (p.v === 'book') return `<b>${x.t}</b> is ${cost} and a strong match, so it booked it without asking.`;
+      return `<b>${x.t}</b> is ${cost}. ${x.price > limit ? `That's over your $${limit} limit, so it asked you first.` : 'A good match, but it asked first.'} ${state === 'asking' ? 'Waiting for your reply.' : p.final === 'booked' ? 'You said yes, so it booked.' : 'You passed.'}`;
+    }
+
+    function build() {
+      track.innerHTML = IDEAS.map((x, i) => `
+        <li class="idea up" data-i="${i}">
+          <div class="when"><b>${x.d.split(' ')[1]}</b>${x.d.split(' ')[0]} ${x.h.replace(' ', '&nbsp;')}</div>
+          <div class="what"><b>${esc(x.t)}</b><span>${esc(x.v)}</span><em class="why">${esc(plan[i].why)}</em></div>
+          <div class="state"><span class="price${x.price ? ' paid' : ''}">${x.price ? '$' + x.price : 'Free'}</span>
+            <span class="chip ask">Asked you <i></i><i></i><i></i></span><span class="chip ok">${plan[i].v === 'ask' ? 'You said yes' : 'Booked'}</span>
+            <span class="chip skip">Skipped</span><span class="chip pass">You passed</span></div>
+        </li>`).join('');
+      wheel.innerHTML = values.map(v => `<span>$${v}</span>`).join('');
+      sub.textContent = `of $${budget}. Books on its own up to $${limit}.`;
+      [...track.children].forEach(li => { li._state = 'up'; });
+      lastP = -1; paintWheel(0, true);
+    }
+
+    function paintWheel(idx, instant) {
+      wheelIdx = idx;
+      [...wheel.children].forEach((el, j) => {
+        const d = j - idx, a = Math.abs(d);
+        if (instant) el.style.transition = 'none';
+        el.style.transform = `translateY(${d * 0.95}em) rotateX(${-d * 32}deg) scale(${1 - Math.min(a, 2) * .17})`;
+        el.style.filter = `blur(${Math.min(a, 2) * 5}px)`;
+        el.style.opacity = a === 0 ? 1 : a === 1 ? .32 : 0;
+        el.className = a === 0 ? (values[j] < limit ? 'now low' : 'now') : '';
+        if (instant) { void el.offsetWidth; el.style.transition = ''; }
+      });
+      $('wheel-sr').textContent = `$${values[idx]} left for October`;
+    }
+
+    function fly(li, amount) {
+      if (reduce) return;
+      const from = li.querySelector('.price').getBoundingClientRect(), to = wheel.getBoundingClientRect();
+      const el = document.createElement('span');
+      el.className = 'fly'; el.textContent = `−$${amount}`;
+      el.style.left = from.left + 'px'; el.style.top = from.top + 'px';
+      document.body.appendChild(el);
+      const dx = to.left + to.width / 2 - from.left - 30, dy = to.top + to.height / 2 - from.top - 10;
+      el.animate([
+        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+        { transform: `translate(${dx * .55}px, ${dy * .55 - 40}px) scale(1.15)`, opacity: 1, offset: .55 },
+        { transform: `translate(${dx}px, ${dy}px) scale(.6)`, opacity: 0 },
+      ], { duration: 750, easing: 'cubic-bezier(.3, .1, .3, 1)' }).onfinish = () => el.remove();
+    }
+
+    function render(p) {
+      const items = [...track.children];
+      const box = track.getBoundingClientRect();
+      const h = items[0].offsetHeight, step = h + 14, mid = box.height / 2 - h / 2;
+      let booked = 0;
+      items.forEach((li, i) => {
+        const d = i - p, a = Math.abs(d), local = p - i, pl = plan[i];
+        li.style.transform = `translateY(${mid + d * step}px) scale(${1 - Math.min(a, 3) * .035})`;
+        li.style.opacity = String(Math.max(0, 1 - Math.max(0, a - .6) * .38));
+        const state = local < -.12 ? 'up' : pl.v === 'book' ? 'booked' : pl.v === 'skip' ? 'skipped' : local < .32 ? 'asking' : pl.final;
+        if (state !== li._state) {
+          li.classList.remove('up', 'asking', 'booked', 'skipped', 'passed');
+          li.classList.add(state);
+          if (state === 'booked' && p > lastP && IDEAS[i].price) fly(li, IDEAS[i].price);
+          li._state = state;
+        }
+        if (state === 'booked' && IDEAS[i].price) booked++;
+      });
+      // the wheel rolls once per paid booking (a beat later going forward, so the −$ lands first)
+      if (booked !== wheelIdx) {
+        const target = booked;
+        if (p > lastP && !reduce) setTimeout(() => { if (target === countBooked()) paintWheel(target); }, 420);
+        else paintWheel(target);
+        wheelIdx = booked;
+      }
+      // caption follows the card on the line
+      const i = Math.round(p);
+      const key = p < -.3 ? 'start' : i >= N ? 'end' : `${i}:${items[Math.max(0, Math.min(N - 1, i))]._state}`;
+      if (key !== captionKey) {
+        captionKey = key;
+        caption.innerHTML = key === 'start' ? 'A week of ideas is on its way. <b>Scroll</b> to watch each one meet your budget.'
+          : key === 'end' ? `<b>$${plan[N - 1].left} left</b> for October. It keeps the rest for something worth leaving the house for.`
+          : items[i]._state === 'up' ? caption.innerHTML : sentence(i, items[i]._state);
+        caption.classList.remove('swap'); void caption.offsetWidth; caption.classList.add('swap');
+      }
+      lastP = p;
+    }
+    const countBooked = () => [...track.children].filter((li, i) => li._state === 'booked' && IDEAS[i].price).length;
+
+    let ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const r = sec.getBoundingClientRect(), total = sec.offsetHeight - innerHeight;
+        const t = Math.min(1, Math.max(0, -r.top / total));
+        render(t * (N - 1 + 1.2) - .6);
+      });
+    }
+    addEventListener('scroll', onScroll, { passive: true });
+    addEventListener('resize', onScroll);
+
+    // the hidden controls
+    const btn = $('tune-btn'), panel = $('tune'), monthly = $('monthly'), surprise = $('surprise');
+    const toggle = open => { panel.hidden = !open; btn.setAttribute('aria-expanded', String(open)); };
+    btn.addEventListener('click', e => { e.stopPropagation(); toggle(panel.hidden); });
+    document.addEventListener('click', e => { if (!panel.hidden && !e.target.closest('.tune')) toggle(false); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { toggle(false); btn.focus(); } });
+    function retune() {
       if (+surprise.value > +monthly.value) surprise.value = monthly.value;
-      const m = +monthly.value, a = +surprise.value;
-      $('monthly-out').value = `€${m}`; $('surprise-out').value = `€${a}`;
+      budget = +monthly.value; limit = +surprise.value;
+      $('monthly-out').value = `$${budget}`; $('surprise-out').value = `$${limit}`;
       for (const r of [monthly, surprise]) r.style.setProperty('--p', `${(r.value - r.min) / (r.max - r.min) * 100}%`);
-      $('ideas').innerHTML = ideas.map(x => {
-        const [v, why] = decide(x, m, a);
-        return `<li class="is-${v}"><span class="t">${esc(x.t)}</span><span class="meta">${esc(x.meta)}, ${x.price ? '€' + x.price : 'free'}</span><span class="verdict ${v}">${label[v]}</span><span class="why">${esc(why)}</span></li>`;
-      }).join('');
+      compute(); build(); captionKey = ''; lastP = 1e9;   // no flying coins while tuning
+      const r = sec.getBoundingClientRect(), total = sec.offsetHeight - innerHeight;
+      render(Math.min(1, Math.max(0, -r.top / total)) * (N + .2) - .6);
     }
-    monthly.addEventListener('input', render); surprise.addEventListener('input', render); render();
+    monthly.addEventListener('input', retune); surprise.addEventListener('input', retune);
+    retune();
   })();
 
   /* ================= last week's picks: the swipeable stack ================= */
