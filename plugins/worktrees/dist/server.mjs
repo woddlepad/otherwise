@@ -38890,6 +38890,15 @@ var App = class _App {
     if (limit) q.set("limit", String(limit));
     return this.json(`/dev/outbox?${q}`);
   }
+  mockOrders(since, limit) {
+    const q = new URLSearchParams();
+    if (since) q.set("since", since);
+    if (limit) q.set("limit", String(limit));
+    return this.json(`/dev/mock-orders?${q}`);
+  }
+  bookings(phone) {
+    return this.json(`/dev/bookings?${new URLSearchParams({ phone })}`);
+  }
   reset(phone, force) {
     return this.json("/dev/reset-user", {
       method: "POST",
@@ -39205,6 +39214,93 @@ var chatReset = tool({
   annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   text: ({ phone, deletedUserId, outboxDeleted, threadDeleted }) => deletedUserId || outboxDeleted || threadDeleted ? `Reset ${phone}: ${deletedUserId ? "user deleted" : "no user"}, ${outboxDeleted} outbox message(s), ${threadDeleted ? "chat memory cleared" : "no chat memory"}.` : `${phone} had nothing to reset.`
 });
+var MockOrder = external_exports.object({
+  orderNo: external_exports.string(),
+  eventSlug: external_exports.string(),
+  showtime: external_exports.string(),
+  qty: external_exports.number().int(),
+  ticketType: external_exports.string(),
+  unitPriceCents: external_exports.number().int(),
+  feesCents: external_exports.number().int(),
+  totalCents: external_exports.number().int(),
+  attendeeName: external_exports.string().nullable(),
+  attendeeEmail: external_exports.string().nullable(),
+  memberEmail: external_exports.string().nullable(),
+  cardLast4: external_exports.string().nullable(),
+  createdAt: external_exports.string()
+});
+var cents = (c) => c === null ? "\u2014" : `\u20AC${(c / 100).toFixed(2)}`;
+var mockOrders = tool({
+  name: "mock_orders",
+  title: "Mock shop orders",
+  description: "Orders placed in a worktree's mock ticket shop (Ticketeria, served at /mock/shop when its .env has MOCK_SHOP=1), newest first: what the booking flow actually bought, with ticket type, quantity, fees and total. Fails if the worktree has MOCK_SHOP off.",
+  input: external_exports.object({
+    name: WorktreeName,
+    since: external_exports.string().datetime({ offset: true }).optional().describe("Only orders after this ISO time"),
+    limit: external_exports.number().int().min(1).max(500).default(20)
+  }),
+  output: external_exports.object({ orders: external_exports.array(MockOrder) }),
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  text: ({ orders }) => orders.length ? orders.map((o) => `${o.createdAt} ${o.orderNo} ${o.eventSlug} ${o.showtime} ${o.qty}\xD7 ${o.ticketType} ${cents(o.totalCents)}${o.feesCents ? ` (fees ${cents(o.feesCents)})` : ""}${o.cardLast4 ? ` card \u2022${o.cardLast4}` : ""}`).join("\n") : "No orders."
+});
+var BookingsReport = external_exports.object({
+  phone: external_exports.string(),
+  userId: external_exports.string().nullable(),
+  credits: external_exports.object({ balanceCents: external_exports.number(), heldCents: external_exports.number(), availableCents: external_exports.number() }).nullable(),
+  bookings: external_exports.array(
+    external_exports.object({
+      id: external_exports.string(),
+      event: external_exports.string(),
+      showtime: external_exports.string().nullable(),
+      qty: external_exports.number().int(),
+      status: external_exports.string(),
+      approvedCents: external_exports.number().nullable(),
+      totalCents: external_exports.number().nullable(),
+      orderRef: external_exports.string().nullable(),
+      ticketUrl: external_exports.string().nullable(),
+      holdRef: external_exports.string().nullable(),
+      liveViewUrl: external_exports.string().nullable(),
+      suspendedStep: external_exports.string().nullable(),
+      error: external_exports.string().nullable(),
+      createdAt: external_exports.string(),
+      updatedAt: external_exports.string()
+    })
+  ),
+  holds: external_exports.array(
+    external_exports.object({
+      ref: external_exports.string(),
+      bookingId: external_exports.string().nullable(),
+      amountCents: external_exports.number(),
+      capturedCents: external_exports.number().nullable(),
+      status: external_exports.string(),
+      note: external_exports.string().nullable(),
+      createdAt: external_exports.string(),
+      settledAt: external_exports.string().nullable()
+    })
+  ),
+  ledger: external_exports.array(
+    external_exports.object({ kind: external_exports.string(), amountCents: external_exports.number(), bookingId: external_exports.string().nullable(), ref: external_exports.string(), note: external_exports.string().nullable(), createdAt: external_exports.string() })
+  )
+});
+var chatBookings = tool({
+  name: "chat_bookings",
+  title: "Test user bookings",
+  description: "A test user's bookings in a worktree (status, approved and paid totals, order number, tickets link, what it waits for, error) with their credit holds, credit ledger rows and current credits, to check the booking flow against the money side.",
+  input: external_exports.object({ name: WorktreeName, phone: Phone }),
+  output: BookingsReport,
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  text: ({ phone, userId, credits, bookings, holds, ledger }) => !userId ? `${phone} has no user.` : [
+    `Credits: ${cents(credits?.availableCents ?? null)} available, ${cents(credits?.heldCents ?? null)} held, balance ${cents(credits?.balanceCents ?? null)}`,
+    "Bookings:",
+    ...bookings.length ? bookings.map(
+      (b) => `  ${b.id.slice(0, 8)} ${b.status} ${b.qty}\xD7 ${b.event} ${b.showtime ?? ""} approved ${cents(b.approvedCents)} paid ${cents(b.totalCents)}${b.orderRef ? ` order ${b.orderRef}` : ""}${b.suspendedStep ? ` waiting at ${b.suspendedStep}` : ""}${b.error ? ` error: ${b.error}` : ""}`
+    ) : ["  none"],
+    "Holds:",
+    ...holds.length ? holds.map((h) => `  ${h.ref} ${h.status} ${cents(h.amountCents)} captured ${cents(h.capturedCents)}`) : ["  none"],
+    "Ledger:",
+    ...ledger.length ? ledger.map((l) => `  ${l.createdAt} ${l.kind} ${cents(l.amountCents)} ${l.note ?? ""}`) : ["  none"]
+  ].join("\n")
+});
 var appDocument = appResource({
   uri: "ui://worktrees/app.html",
   name: "Worktrees"
@@ -39238,7 +39334,9 @@ var extensionContract = defineExtension({
     chatSend,
     chatMessages,
     chatOnboard,
-    chatReset
+    chatReset,
+    chatBookings,
+    mockOrders
   }
 });
 
@@ -39432,6 +39530,8 @@ extension.tool(chatMessages, async (_context, { name, phone, since, limit }) => 
 });
 extension.tool(chatOnboard, async (_context, input) => onboard(await App.open(await find(input.name)), input));
 extension.tool(chatReset, async (_context, { name, phone, force }) => (await App.open(await find(name))).reset(phone, force));
+extension.tool(chatBookings, async (_context, { name, phone }) => (await App.open(await find(name))).bookings(phone));
+extension.tool(mockOrders, async (_context, { name, since, limit }) => (await App.open(await find(name))).mockOrders(since, limit));
 extension.app(appDocument);
 extension.tool(openWorktreesApp, () => ({ ready: true }));
 process.on("exit", () => void closeProd());
