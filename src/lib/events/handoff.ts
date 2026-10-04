@@ -1,19 +1,32 @@
 import { db } from '../db';
 import { getTaste } from '../taste';
-import { attachCancellation, normaliseMethod, type CancelMethod, type CancellationInfo, type PolicyKind } from './cancellation';
+import {
+  attachCancellation,
+  fromStored,
+  type CancelMethod,
+  type CancellationInfo,
+  type PlatformId,
+  type PolicyKind,
+  type PolicyScope,
+  type PolicySource,
+} from './cancellation';
 import { DEAD_STATUSES, type EventCategory, type EventStatus } from './classify';
 import { DEFAULT_TIMEZONE } from './discover';
-import { refreshStatus } from './status';
+import { refreshStatus, type EventPagePolicy } from './status';
 import { loadEvent, saveCancellation } from './store';
 import type { StoredEvent } from './types';
 
 /**
- * Booking handoff v1 (PLAN §8.10): everything the booking agent needs to buy tickets for one suggested event.
- * Contract for the booking side: re-read price + cancellation on the checkout page; abort and ask if worse than this.
+ * Booking handoff v1.1 (PLAN §8.10, §9): everything the booking agent needs to buy tickets for one suggested event.
+ * 1.1 adds per-event cancellation (scope/source/cancellationUrl/policyUrl/platform) and `contract`; all v1 fields stay.
  */
 
+export const HANDOFF_CONTRACT =
+  "Re-read price and cancellation on checkout; abort if worse. After purchase, save the order's manage/cancel link from the confirmation email (AgentMail) and report it.";
+
 export type BookingHandoff = {
-  version: 1;
+  version: 1.1;
+  contract: string;            // HANDOFF_CONTRACT
   eventId: string;
   suggestionId: string | null;
   userId: string;
@@ -51,6 +64,11 @@ export type BookingHandoff = {
     quote: string | null;
     sourceUrl: string | null;
     summary: string;
+    scope: PolicyScope;            // event = this event's own page; venue = venue's general terms; platform = platform default
+    source: PolicySource;
+    cancellationUrl: string | null; // verified cancel/manage link from the event page, else the platform's order page
+    policyUrl: string | null;
+    platform: PlatformId | null;
   };
   ticketsWanted: number;       // taste.usualTicketCount ?? 1
   decision: { action: 'book' | 'ask' | 'skip'; reason: string; confidence: number };
@@ -60,6 +78,7 @@ export type BookingHandoff = {
 export class HandoffNotFound extends Error {}
 
 const STALE_MS = 3_600_000;
+const CANCELLATION_STALE_MS = 24 * STALE_MS;
 
 /** Why the booking agent can't buy anything for this event (null = it can try). */
 export function notBookable(e: StoredEvent, now = new Date()): string | null {
@@ -70,25 +89,6 @@ export function notBookable(e: StoredEvent, now = new Date()): string | null {
   if (e.status === 'free_entry') return 'free entry, nothing to book';
   if (e.status === 'door_only') return 'tickets at the door only';
   return null;
-}
-
-/** details.cancellation as saved by saveCancellation; older rows lack method/contact/transferable. */
-function storedCancellation(raw: unknown): CancellationInfo | null {
-  if (!raw || typeof raw !== 'object' || !('kind' in raw)) return null;
-  const c = raw as Partial<CancellationInfo>;
-  return {
-    kind: c.kind as PolicyKind,
-    hoursBeforeStart: c.hoursBeforeStart ?? null,
-    fee: c.fee ?? null,
-    quote: c.quote ?? null,
-    sourceUrl: c.sourceUrl ?? null,
-    domain: c.domain ?? '',
-    method: normaliseMethod(c.method),
-    contact: c.contact ?? null,
-    transferable: c.transferable ?? null,
-    cancelBy: c.cancelBy ?? null,
-    summary: c.summary ?? '',
-  };
 }
 
 /**
@@ -111,33 +111,29 @@ export async function getBookingHandoff(userId: string, eventId: string, opts: {
   if (!loaded) throw new HandoffNotFound(`unknown event ${eventId}`);
   let event = loaded.event;
 
-  if (refresh && Date.now() - new Date(event.statusCheckedAt).getTime() > STALE_MS) {
-    event = (await refreshStatus([event])).events[0];
-  }
+  let page: EventPagePolicy | null | undefined;
+  const recheck = async () => {
+    const fresh = await refreshStatus([event]);
+    event = fresh.events[0];
+    page = fresh.checks.get(event.id)?.policy ?? null;
+  };
+  if (refresh && Date.now() - new Date(event.statusCheckedAt).getTime() > STALE_MS) await recheck();
 
-  let cancellation = storedCancellation(loaded.details.cancellation);
-  if (refresh && (!cancellation || !('method' in (loaded.details.cancellation as object)))) {
+  let cancellation = fromStored(loaded.details.cancellation);
+  const raw = loaded.details.cancellation as Record<string, unknown> | undefined;
+  const policyStale =
+    !cancellation || !raw || !('scope' in raw) || !cancellation.checkedAt || Date.now() - new Date(cancellation.checkedAt).getTime() > CANCELLATION_STALE_MS;
+  if (refresh && policyStale) {
     try {
-      const [withPolicy] = await attachCancellation([event], tz);
+      if (page === undefined) await recheck(); // the event page's own policy is read during the re-check
+      const [withPolicy] = await attachCancellation([event], tz, new Map([[event.id, page ?? null]]));
       cancellation = withPolicy.cancellation;
       await saveCancellation([withPolicy]);
     } catch (err) {
       console.warn('[handoff] cancellation lookup failed:', String(err).slice(0, 200));
     }
   }
-  cancellation ??= {
-    kind: 'unknown',
-    hoursBeforeStart: null,
-    fee: null,
-    quote: null,
-    sourceUrl: null,
-    domain: '',
-    method: 'unknown',
-    contact: null,
-    transferable: null,
-    cancelBy: null,
-    summary: 'Cancellation policy unknown',
-  };
+  const policy: CancellationInfo = cancellation ?? fromStored({ kind: 'unknown', summary: 'Cancellation policy unknown' })!;
 
   const [{ rows: sugg }, { rows: venues }, taste] = await Promise.all([
     db.query<{ id: string; decision: string | null; decision_reason: string | null; confidence: number | null }>(
@@ -155,7 +151,8 @@ export async function getBookingHandoff(userId: string, eventId: string, opts: {
   const blocked = notBookable(event);
 
   return {
-    version: 1,
+    version: 1.1,
+    contract: HANDOFF_CONTRACT,
     eventId: event.id,
     suggestionId: s?.id ?? null,
     userId,
@@ -183,16 +180,21 @@ export async function getBookingHandoff(userId: string, eventId: string, opts: {
     status: event.status,
     statusCheckedAt: event.statusCheckedAt,
     cancellation: {
-      kind: cancellation.kind,
-      cancelBy: cancellation.cancelBy,
-      hoursBeforeStart: cancellation.hoursBeforeStart,
-      fee: cancellation.fee,
-      method: cancellation.method,
-      contact: cancellation.contact,
-      transferable: cancellation.transferable,
-      quote: cancellation.quote,
-      sourceUrl: cancellation.sourceUrl,
-      summary: cancellation.summary,
+      kind: policy.kind,
+      cancelBy: policy.cancelBy,
+      hoursBeforeStart: policy.hoursBeforeStart,
+      fee: policy.fee,
+      method: policy.method,
+      contact: policy.contact,
+      transferable: policy.transferable,
+      quote: policy.quote,
+      sourceUrl: policy.sourceUrl,
+      summary: policy.summary,
+      scope: policy.scope,
+      source: policy.source,
+      cancellationUrl: policy.cancellationUrl,
+      policyUrl: policy.policyUrl,
+      platform: policy.platform,
     },
     ticketsWanted: taste?.profile?.usualTicketCount ?? 1,
     decision: {

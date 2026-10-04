@@ -316,3 +316,56 @@ Contract for the booking side: re-read price + cancellation on the checkout page
 - Decided 2026-10-04: **no periodic pulls for the hackathon.** The Neon daily trigger is dropped; for the demo, run discovery
   once per demo user (`POST /dev/discover {"phone":…,"notify":true}` with `X-Dev-Token`, or `scripts/discover.ts --user …`).
   `/cron/discover` stays in the code for later.
+
+## 9. Per-event cancellation (built 2026-10-04 ~14:10 PT, worktree `wt/event-cancellation`)
+
+### 9.1 Why
+Venue sites (Black Cat, Keys Jazz Bistro, SFJAZZ, Roxie) don't state the policy on event pages, only in their FAQ, but
+ticket platforms show the organiser's policy per event (Eventbrite: "Refunds up to 7 days before event", "No refunds").
+A venue-level lookup is wrong for those. Real cancel links almost never appear before purchase, and Exa's summariser
+invents URLs (returns the event URL itself or a made-up help URL) and paraphrases ("No refunds" → "All sales final").
+
+### 9.2 Design
+- **No extra Exa calls**: the live re-check (`status.ts refreshStatus`, shortlist only) asks the same `/contents` call for
+  `policyText` (verbatim refund sentence(s) for THIS event), `deadlineText`, `cancellationUrl`, `policyUrl`, and now also
+  requests the page `text` (30k chars) and `extras.links` (200) to verify them (+$0.001/page). Result: `StatusCheck.policy: EventPagePolicy`.
+- **Verification** (code, not the LLM):
+  - `cancellationUrl` / `policyUrl` kept only if among the page's links or literally in its text, and never the event's own
+    `url` / `bookingUrl` / `pageUrl`. Rejections are logged (`[events] policy check … rejected …`).
+  - `policyText` kept only if it is on the page (normalised exact match or ≥80 % of its words). If the summariser missed or
+    paraphrased it, on single-event pages a policy line is taken from the page text in code ("No refunds", "Refunds up to …").
+  - Aggregator pages give no policy (their terms aren't the seller's).
+- **Classification**: one LLM call (scout) for all shortlisted events with policy text: kind, `hoursBeforeStart` ("up to 7 days
+  before" → 168), fee, method, contact, transferable, `askOrganizer`. Conservative (unclear → unknown or stricter).
+  A non-unknown event-scope kind always has a non-empty verbatim quote.
+- **Precedence** (`cancellation.ts attachCancellation(events, tz, pages)`):
+  1. free event (price 0 or status free_entry/free_rsvp) → `free_event`, before any platform default;
+  2. **event page** (scope `event`, source `event_page`); method if the text doesn't say: venue's, else platform default
+     (not when the text says "contact the organiser");
+  3. **venue** policy by domain (`venue_policies`, 7-day cache; scope `venue`, source `venue_policy`);
+  4. **platform default** from `platforms.ts` when `defaultKind` is set (scope `platform`, source `platform_default`);
+  5. unknown (scope `none`).
+  On per-event platforms (`perEventPolicy`: Eventbrite, Luma, …) without policy text the kind stays **unknown**: no venue or
+  platform default (could be wrong for that organiser), and no venue lookup is made for them.
+- **Links**: `cancellationUrl` = verified event-page link, else the platform's `orderManagementUrl`, else null (never the event
+  URL; when null, show `policyUrl`). `policyUrl` = event-page link, else venue policy page, else platform policy page.
+  `platform` = `detectPlatform(bookingUrl ?? url)`.
+- **Persist**: `events.cancellation_kind/_scope/_source/cancellation_url/policy_url/cancel_by/cancellation_checked_at`
+  (+ full object in `details.cancellation`, incl. `checkedAt`). A per-event result < 24 h old is reused, unless it was
+  not from the event page and the page now shows policy text.
+- **Gate** `allowsBookingUnasked`: same rules, evaluated on the per-event result, so an event page stricter than the venue wins.
+- WhatsApp summary marks whose policy it is: "… (venue policy)" / "… (platform default)"; event-page policies have no suffix.
+
+### 9.3 Handoff 1.1
+`version: 1.1` (number), all v1 fields, plus `contract: "Re-read price and cancellation on checkout; abort if worse. After
+purchase, save the order's manage/cancel link from the confirmation email (AgentMail) and report it."` and
+`cancellation.{scope, source, cancellationUrl, policyUrl, platform}`. The route path is unchanged. The handoff re-reads the
+event page (re-check) when the stored policy is missing, from before 1.1, or > 24 h old. Picks (`notify.ts`, workflow
+`pickSchema`, `find-events`) carry `cancellationScope`, `cancellationUrl`, `policyUrl`.
+`source: 'confirmation_email'` is reserved for the booking side (manage link from the order email); nothing writes it yet.
+
+### 9.4 Status
+Built and tested in the worktree (its own Neon branch migrated, not production). Test pages: Eventbrite resource panel →
+event scope, free_cancellation, 168 h; Eventbrite Halloween bar crawl → event scope, no_refunds (summariser's "All sales final"
+rejected, "No refunds" taken from page text); Black Cat → venue no_refunds (blackcatsf.com FAQ); Keys Jazz Bistro → venue
+exchange_or_credit_only. Production needs `npm run db:migrate` (one idempotent block) after merge.

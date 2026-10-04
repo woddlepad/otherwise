@@ -5,7 +5,7 @@ import { utcToLocal } from './time';
  * links rank below a venue's own page and their terms say nothing about the real cancellation policy.
  */
 export const AGGREGATORS =
-  /bandsintown|songkick|jambase|consequence\.net|concerts50|eventworld|venunite|jazzdatebook|jazznearyou|localgroove|broadwayworld|patchbay|allevents|evvnt|sanfrancisco\.theater|thebolditalic|sanjose\.com|sfstation|concertful|artelize|scenef|filmonfilm|dothebay|funcheap|timeout|ma\.to|stubhub|vividseats|seatgeek|ticketsmarter|gotickets|ticketsinventory|concertfix|eventbrite\.com\/d\//;
+  /bandsintown|songkick|jambase|consequence\.net|concerts50|eventworld|venunite|jazzdatebook|jazznearyou|localgroove|broadwayworld|patchbay|allevents|evvnt|sanfrancisco\.theater|thebolditalic|sanjose\.com|sfstation|concertful|artelize|scenef|filmonfilm|dothebay|funcheap|timeout|ma\.to|stubhub|vividseats|seatgeek|ticketsmarter|gotickets|ticketsinventory|concertfix|happeningnext|do415|everfest|eventbrite\.com\/d\//;
 
 /**
  * Event taxonomy. `category` is one fixed value (filters, diversity, UI grouping); `tags` are free lowercase

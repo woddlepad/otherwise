@@ -29,6 +29,9 @@ const pickSchema = z.object({
   decisionReason: z.string(),
   cancellation: z.string().nullable(),
   cancelBy: z.string().nullable(),
+  cancellationScope: z.enum(['event', 'venue', 'platform', 'none']).nullable(),
+  cancellationUrl: z.string().nullable(),
+  policyUrl: z.string().nullable(),
 });
 
 const input = z.object({

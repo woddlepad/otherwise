@@ -255,13 +255,20 @@ export async function finishRun(runId: string, stats: { queries: string[]; candi
   );
 }
 
-/** Stores the looked-up cancellation policy on each event (details.cancellation) for the booking flow. */
+/**
+ * Stores each event's cancellation result: the full object in details.cancellation (booking flow) plus the
+ * cancellation_* columns (PLAN §9) for queries and the 24 h reuse check.
+ */
 export async function saveCancellation(events: { id: string; cancellation?: CancellationInfo }[]) {
   for (const e of events) {
-    if (!e.cancellation || !/^[0-9a-f-]{36}$/.test(e.id)) continue; // tuning script uses fake ids
-    await db.query(`UPDATE events SET details = details || jsonb_build_object('cancellation', $2::jsonb) WHERE id = $1`, [
-      e.id,
-      JSON.stringify(e.cancellation),
-    ]);
+    const c = e.cancellation;
+    if (!c || !/^[0-9a-f-]{36}$/.test(e.id)) continue; // tuning script uses fake ids
+    await db.query(
+      `UPDATE events SET details = details || jsonb_build_object('cancellation', $2::jsonb),
+         cancellation_kind = $3, cancellation_scope = $4, cancellation_source = $5, cancellation_url = $6, policy_url = $7,
+         cancel_by = $8, cancellation_checked_at = coalesce($9::timestamptz, now())
+       WHERE id = $1`,
+      [e.id, JSON.stringify(c), c.kind, c.scope, c.source, c.cancellationUrl, c.policyUrl, c.cancelBy, c.checkedAt],
+    );
   }
 }
