@@ -258,6 +258,17 @@ ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS method       text;     -- on
 ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS contact      text;     -- URL / email / phone for cancelling
 ALTER TABLE venue_policies ADD COLUMN IF NOT EXISTS transferable boolean;  -- tickets may be given to someone else
 
+-- Per-event cancellation (src/lib/events: status.ts, cancellation.ts, platforms.ts; PLAN §9): the policy that applies to
+-- THIS event (event page > venue policy > ticket-platform default), with a cancel/manage link. Full object stays in
+-- details.cancellation; these columns are for queries and the 24 h reuse check.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_kind       text;         -- PolicyKind
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_scope      text;         -- event | venue | platform | none
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_source     text;         -- event_page | venue_policy | platform_default | confirmation_email | none
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_url        text;         -- verified cancel/manage-order link (or the platform's order page)
+ALTER TABLE events ADD COLUMN IF NOT EXISTS policy_url              text;         -- page stating the policy
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancel_by               timestamptz;  -- last moment to cancel under the policy
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cancellation_checked_at timestamptz;
+
 -- Every outgoing WhatsApp message with what happened to it (src/lib/whatsapp.ts), one row per send (not per chunk).
 -- Dev worktrees never reach Twilio for test numbers, so this is how the chat tools (plugins/worktrees) read replies.
 CREATE TABLE IF NOT EXISTS outbound_messages (

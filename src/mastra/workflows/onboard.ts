@@ -43,8 +43,7 @@ const analyzeTaste = createStep({
   execute: async ({ inputData: { userId, signals }, mastra }) => {
     const result = await mastra.getAgent('analyst').generate(
       `Build this person's taste profile for going out. If the data is thin, say so in the summary, keep strengths low and add open questions.\n\n${signals}`,
-      // The Neon AI Gateway rejects Anthropic's native output format ("output_config.format: Extra inputs are not permitted").
-      { structuredOutput: { schema: tasteProfileSchema, jsonPromptInjection: true } },
+      { structuredOutput: { schema: tasteProfileSchema, errorStrategy: 'strict', jsonPromptInjection: true } },
     );
     await saveTasteProfile(userId, result.object);
     return { userId, profile: result.object };
