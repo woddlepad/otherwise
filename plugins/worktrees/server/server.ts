@@ -2,11 +2,18 @@ import { join } from 'node:path'
 
 import { createSqliteExtension } from '@atmos.build/extension/server'
 
+import { App, onboard } from './chat.ts'
 import {
   appDocument,
+  chatBookings,
+  chatMessages,
+  chatOnboard,
+  chatReset,
+  chatSend,
   createWorktree,
   extensionContract,
   listWorktrees,
+  mockOrders,
   openWorktreesApp,
   removeWorktree,
   setPhone,
@@ -193,6 +200,31 @@ extension.tool(stopWorktree, (_context, { name }) =>
     return { worktree: await describeOne(name), notes }
   }),
 )
+
+// Chat tools aren't serialised: a turn takes a while and doesn't touch worktree state.
+extension.tool(chatSend, async (_context, { name, phone, text, profileName, timeoutSeconds, quietSeconds }) => {
+  const app = await App.open(await find(name))
+  const { messages, timedOut, onboardingStatus } = await app.chat(phone, text, {
+    profileName,
+    deadline: Date.now() + timeoutSeconds * 1000,
+    quietMs: quietSeconds * 1000,
+  })
+  return { phone, replies: messages, timedOut, onboardingStatus }
+})
+
+extension.tool(chatMessages, async (_context, { name, phone, since, limit }) => {
+  const app = await App.open(await find(name))
+  const { messages, onboardingStatus } = await app.outbox(phone, since, limit)
+  return { phone, messages, onboardingStatus }
+})
+
+extension.tool(chatOnboard, async (_context, input) => onboard(await App.open(await find(input.name)), input))
+
+extension.tool(chatReset, async (_context, { name, phone, force }) => (await App.open(await find(name))).reset(phone, force))
+
+extension.tool(chatBookings, async (_context, { name, phone }) => (await App.open(await find(name))).bookings(phone))
+
+extension.tool(mockOrders, async (_context, { name, since, limit }) => (await App.open(await find(name))).mockOrders(since, limit))
 
 extension.app(appDocument)
 extension.tool(openWorktreesApp, () => ({ ready: true }))

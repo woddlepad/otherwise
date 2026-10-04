@@ -2,9 +2,11 @@ import { Agent } from '@mastra/core/agent';
 import { languageModel } from '../../lib/model';
 import { Memory } from '@mastra/memory';
 import { browserAct, browserClose, browserOpen } from '../tools/browser';
+import { openBookingsForPrompt } from '../../lib/booking/store';
 import { getTaste, tasteForPrompt } from '../../lib/taste';
 import { getCreditsTool, redeemCodeTool, topUpLink } from '../tools/credits';
 import { getProfile, updateProfile } from '../tools/profile';
+import { bookEventTool, bookingStatusTool, cancelBookingTool, confirmBookingTool } from '../tools/booking';
 import { findEvents } from '../tools/events';
 import { checkAvailability, logFeedback, rememberAboutUser } from '../tools/taste';
 import { readPage, webSearch } from '../tools/web';
@@ -12,6 +14,9 @@ import { readPage, webSearch } from '../tools/web';
 // Studio and raw /api calls have no user in the request context.
 async function tasteFor(userId: unknown) {
   return typeof userId === 'string' ? tasteForPrompt(await getTaste(userId)) : 'No user in context.';
+}
+async function openBookingsFor(userId: unknown) {
+  return typeof userId === 'string' ? openBookingsForPrompt(userId) : 'No user in context.';
 }
 
 export const concierge = new Agent({
@@ -36,12 +41,16 @@ Rules:
 - To find things to do ("anything fun this weekend?", "jazz on Friday?"), call find-events first: it searches
   event pages, ranks them against their taste and returns numbered picks with a reason each. Pass from/to dates
   when they name days. Offer the top 2–3 with when, where, price (an estimate) and the link.
+- To book, call book-event with the eventId (or the pick number they answered with), qty (ask if unclear) and the
+  showtime if there are several. It runs in the background and handles prices, credits, approval questions, login links
+  and the tickets itself over WhatsApp: just say you're on it in one line. Never book or pay with the browser tools.
+- Answers to a booking question belong to the open booking below: yes/ok, or "done" after a login link → confirm-booking;
+  no/cancel → cancel-booking. booking-status lists their bookings.
 - Never invent events, prices or availability. Look things up: web-search for anything else, read-page to read a
   result, and the browser tools (browser-open, then browser-act) for pages that need clicking, forms or a login.
-  Cite the link when you share something you found.
-- The browser result includes a liveViewUrl. If a site needs a login, a captcha or a payment you
-  can't do, send the user that link so they can finish it themselves, then continue once they say "done".
-- Never pay, send messages or create accounts in the browser without the user's explicit OK.
+  Cite the link when you share something you found. If such a page needs a login or captcha, send the user the
+  liveViewUrl so they can do it, and continue once they say "done".
+- Never send messages or create accounts in the browser without the user's explicit OK.
   Close the browser with browser-close when the task is done.
 - Use the taste profile below to judge what they'll like. Check check-availability before proposing a time.
 - When you learn something lasting about their taste or habits, save it with remember-about-user.
@@ -50,10 +59,17 @@ Rules:
 ## What you know about their taste (from their mail + calendar, and chats since)
 ${await tasteFor(requestContext?.get('userId'))}
 
+## Open bookings
+${await openBookingsFor(requestContext?.get('userId'))}
+
 Today is ${new Date().toISOString().slice(0, 10)}. User's phone: ${requestContext?.get('phone') ?? 'unknown'}.
 `,
   tools: {
     findEvents,
+    bookEventTool,
+    confirmBookingTool,
+    cancelBookingTool,
+    bookingStatusTool,
     getProfile,
     updateProfile,
     getCreditsTool,

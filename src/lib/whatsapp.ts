@@ -1,4 +1,5 @@
 import twilio from 'twilio';
+import { db } from './db';
 
 // Twilio rejects message bodies over 1600 characters.
 const MAX_BODY = 1500;
@@ -21,19 +22,43 @@ export function phoneFromWhatsApp(address: string) {
 // Dev worktrees run on a copy of production data, so they may only message these numbers (comma-separated E.164).
 const allowlist = process.env.WHATSAPP_ALLOWLIST?.split(',').map(p => p.trim()).filter(Boolean);
 
+export type OutboundStatus = 'sent' | 'dry_run' | 'not_allowlisted' | 'failed';
+
 export async function sendWhatsApp(phone: string, text: string, mediaUrl?: string) {
   if (!isTwilioConfigured() || (allowlist && !allowlist.includes(phone))) {
     console.log(`[whatsapp:${allowlist ? 'not-allowlisted' : 'dry-run'}] → ${phone}: ${text}`);
+    await recordOutbound(phone, text, mediaUrl, allowlist ? 'not_allowlisted' : 'dry_run');
     return;
   }
-  const chunks = splitMessage(text);
-  for (const [i, body] of chunks.entries()) {
-    await getClient().messages.create({
-      from: process.env.TWILIO_WHATSAPP_FROM!,
-      to: `whatsapp:${phone}`,
+  try {
+    const chunks = splitMessage(text);
+    for (const [i, body] of chunks.entries()) {
+      await getClient().messages.create({
+        from: process.env.TWILIO_WHATSAPP_FROM!,
+        to: `whatsapp:${phone}`,
+        body,
+        ...(mediaUrl && i === chunks.length - 1 ? { mediaUrl: [mediaUrl] } : {}),
+      });
+    }
+  } catch (err) {
+    await recordOutbound(phone, text, mediaUrl, 'failed', String(err));
+    throw err;
+  }
+  await recordOutbound(phone, text, mediaUrl, 'sent');
+}
+
+/** Outbox row for every send (the chat tools read replies from it); a DB problem must never stop a message. */
+async function recordOutbound(phone: string, body: string, mediaUrl: string | undefined, status: OutboundStatus, error?: string) {
+  try {
+    await db.query(`INSERT INTO outbound_messages (phone, body, media_url, status, error) VALUES ($1, $2, $3, $4, $5)`, [
+      phone,
       body,
-      ...(mediaUrl && i === chunks.length - 1 ? { mediaUrl: [mediaUrl] } : {}),
-    });
+      mediaUrl ?? null,
+      status,
+      error ?? null,
+    ]);
+  } catch (err) {
+    console.error('[whatsapp] could not record outbound message', { phone, status, err: String(err) });
   }
 }
 

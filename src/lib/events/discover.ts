@@ -3,6 +3,7 @@ import { allowsBookingUnasked, attachCancellation } from './cancellation';
 import { DEAD_STATUSES, type EventCategory } from './classify';
 import { geocodeUserHome, geocodeVenues, haversineKm } from './geocode';
 import { getTaste } from '../taste';
+import { mockShopPage, rememberMockPolicy } from '../mockshop';
 import { loadPages, searchUrls, type PageEvents } from './exa';
 import { toCandidates } from './normalize';
 import { planQueries } from './plan';
@@ -101,6 +102,12 @@ export async function findCandidates(
   const loaded = await loadPages(items, ctx);
   costDollars += loaded.costDollars;
   const pages: PageEvents[] = loaded.pages;
+  // MOCK_SHOP=1: the test ticket shop's events join as one more listing page (src/lib/mockshop.ts).
+  const mock = mockShopPage(ctx);
+  if (mock) {
+    pages.push(mock);
+    await rememberMockPolicy().catch(err => console.warn('[events] mock shop policy:', String(err).slice(0, 200)));
+  }
   const cache = { queries: cachedQueries, pages: loaded.cachedPages, failedPages: loaded.failed.length };
 
   const candidates = toCandidates(pages, ctx);

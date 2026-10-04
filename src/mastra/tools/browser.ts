@@ -16,7 +16,7 @@ function getKernel() {
   return kernel;
 }
 
-const browserName = (userId: string) => `user-${userId}`;
+export const browserName = (userId: string) => `user-${userId}`;
 
 function isStatus(err: unknown, ...statuses: number[]) {
   return err instanceof Kernel.APIError && statuses.includes(err.status as number);
@@ -51,14 +51,14 @@ async function createBrowser(name: string) {
   }
 }
 
-async function liveViewUrl(name: string) {
+export async function liveViewUrl(name: string) {
   const b = await getKernel().browsers.retrieve(name).catch(() => undefined);
   return b?.browser_live_view_url;
 }
 
-// Runs in the page. Tags visible interactive elements with data-ref="N" so later code can target
+// Runs in the page (also used by the booking checkout, src/lib/booking/checkout.ts). Tags visible interactive elements with data-ref="N" so later code can target
 // them with page.locator('[data-ref="N"]'). Plain string so bundlers can't rewrite it.
-const SNAPSHOT = String.raw`
+export const SNAPSHOT = String.raw`
 return await page.evaluate(() => {
   const selector = 'a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=link], [role=checkbox], [role=radio], [role=tab], [role=option], [role=menuitem], [contenteditable=true]';
   document.querySelectorAll('[data-ref]').forEach(el => el.removeAttribute('data-ref'));
@@ -82,7 +82,7 @@ return await page.evaluate(() => {
 });
 `;
 
-async function execute(name: string, code: string, timeoutSec = 60) {
+export async function execute(name: string, code: string, timeoutSec = 60) {
   const run = () => getKernel().browsers.playwright.execute(name, { code, timeout_sec: timeoutSec });
   try {
     return await run();
@@ -94,9 +94,16 @@ async function execute(name: string, code: string, timeoutSec = 60) {
   }
 }
 
-async function snapshot(name: string) {
+export async function snapshot(name: string) {
   const res = await execute(name, SNAPSHOT, 30);
   return res.success ? res.result : { error: res.error };
+}
+
+/** Closes (and so saves the profile of) a user's browser; already gone is fine. */
+export async function closeBrowser(name: string) {
+  await getKernel().browsers.deleteByID(name).catch(err => {
+    if (!isStatus(err, 404, 410)) throw err;
+  });
 }
 
 export const browserOpen = createTool({
@@ -144,10 +151,7 @@ export const browserClose = createTool({
   description: "Close the user's cloud browser when a task is done. This saves cookies and logins to their profile.",
   inputSchema: z.object({}),
   execute: async (_input, { requestContext }) => {
-    const name = browserName(userIdFrom(requestContext));
-    await getKernel().browsers.deleteByID(name).catch(err => {
-      if (!isStatus(err, 404, 410)) throw err;
-    });
+    await closeBrowser(browserName(userIdFrom(requestContext)));
     return { ok: true };
   },
 });

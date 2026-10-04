@@ -8376,7 +8376,7 @@ var require_utils3 = __commonJS({
     var nodeCrypto = __require("crypto");
     module.exports = {
       postgresMd5PasswordHash,
-      randomBytes,
+      randomBytes: randomBytes2,
       deriveKey,
       sha256,
       hashByName,
@@ -8386,7 +8386,7 @@ var require_utils3 = __commonJS({
     var webCrypto = nodeCrypto.webcrypto || globalThis.crypto;
     var subtleCrypto = webCrypto.subtle;
     var textEncoder = new TextEncoder();
-    function randomBytes(length) {
+    function randomBytes2(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
     async function md5(string4) {
@@ -12517,7 +12517,7 @@ var require_lib2 = __commonJS({
 });
 
 // server/server.ts
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 
 // node_modules/@atmos.build/extension/dist/server.js
 import { createHash } from "node:crypto";
@@ -38571,122 +38571,10 @@ function applyMigrations(database, directory, extensionName) {
   }
 }
 
-// server/contract.ts
-var WorktreeName = external_exports.string().trim().regex(/^[a-z0-9][a-z0-9-]{0,29}$/, "lowercase letters, digits and dashes, at most 30 characters");
-var Phone = external_exports.string().trim().regex(/^\+[1-9]\d{6,14}$/, "an E.164 number without spaces, such as +4915112345678");
-var RouteState = external_exports.object({
-  status: external_exports.enum(["active", "expired", "none", "elsewhere", "unknown"]),
-  expiresAt: external_exports.string().nullable(),
-  message: external_exports.string().nullable()
-});
-var Worktree = external_exports.object({
-  name: external_exports.string(),
-  path: external_exports.string(),
-  gitBranch: external_exports.string(),
-  port: external_exports.number().int(),
-  phone: external_exports.string().nullable(),
-  neonBranchId: external_exports.string(),
-  neonBranchName: external_exports.string(),
-  createdAt: external_exports.string(),
-  app: external_exports.enum(["running", "starting", "stopped", "failed"]),
-  publicUrl: external_exports.string().nullable(),
-  route: RouteState,
-  dirtyFiles: external_exports.number().int(),
-  aheadOfMain: external_exports.number().int(),
-  lastCommit: external_exports.string()
-});
-var WorktreeList = external_exports.object({
-  repo: external_exports.string(),
-  worktrees: external_exports.array(Worktree)
-});
-var worktreeList = resource({
-  uri: "atmos://worktrees/list",
-  name: "Booking agent worktrees",
-  schema: WorktreeList
-});
-var listWorktrees = tool({
-  name: "list_worktrees",
-  title: "List worktrees",
-  description: "List the booking-agent dev worktrees on this Machine with their port, public URL, Neon branch, routed WhatsApp phone and git state.",
-  input: external_exports.object({}),
-  output: WorktreeList,
-  annotations: { readOnlyHint: true, destructiveHint: false },
-  text: ({ worktrees }) => worktrees.length ? worktrees.map((w) => `${w.name}: ${w.app} on :${w.port} ${w.publicUrl ?? ""} phone ${w.phone ?? "\u2014"} (${w.route.status})`).join("\n") : "No worktrees yet."
-});
-var createWorktree = tool({
-  name: "create_worktree",
-  title: "Create worktree",
-  description: "Create a git worktree on branch wt/<name>, branch the production Neon database for it, write its .env from the main checkout, start its dev server and tunnel, and route the phone (optional) to it.",
-  input: external_exports.object({
-    name: WorktreeName,
-    phone: Phone.optional().describe("WhatsApp number whose inbound messages go to this worktree; also its only outbound allowlist entry"),
-    baseRef: external_exports.string().trim().min(1).max(100).default("main").describe("Git ref the new branch starts from"),
-    start: external_exports.boolean().default(true).describe("Start the dev server and tunnel right away")
-  }),
-  output: external_exports.object({ worktree: Worktree, notes: external_exports.array(external_exports.string()) }),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
-  text: ({ worktree, notes }) => [`Created ${worktree.name} at ${worktree.path} (:${worktree.port}, ${worktree.publicUrl ?? "no tunnel"}).`, ...notes].join("\n")
-});
-var removeWorktree = tool({
-  name: "remove_worktree",
-  title: "Remove worktree",
-  description: "Stop a worktree, drop its WhatsApp route, delete its Neon branch and remove the git worktree. Refuses when there are uncommitted changes unless force is set. The git branch is kept.",
-  input: external_exports.object({ name: WorktreeName, force: external_exports.boolean().default(false) }),
-  output: external_exports.object({ removed: external_exports.string(), notes: external_exports.array(external_exports.string()) }),
-  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
-  text: ({ removed, notes }) => [`Removed ${removed}.`, ...notes].join("\n")
-});
-var setPhone = tool({
-  name: "set_worktree_phone",
-  title: "Set worktree phone",
-  description: "Set (or clear with null) the WhatsApp number routed to a worktree. Updates the worktree's allowlist, restarts its app and points production's route for that number at it; a number routed elsewhere moves here.",
-  input: external_exports.object({ name: WorktreeName, phone: Phone.nullable() }),
-  output: external_exports.object({ worktree: Worktree, notes: external_exports.array(external_exports.string()) }),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  text: ({ worktree, notes }) => [`${worktree.name} now uses ${worktree.phone ?? "no phone"} (${worktree.route.status}).`, ...notes].join("\n")
-});
-var startWorktree = tool({
-  name: "start_worktree",
-  title: "Start worktree",
-  description: "Start a worktree's tunnel and dev server, refresh PUBLIC_URL and renew its WhatsApp route.",
-  input: external_exports.object({ name: WorktreeName }),
-  output: external_exports.object({ worktree: Worktree, notes: external_exports.array(external_exports.string()) }),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  text: ({ worktree, notes }) => [`${worktree.name} is ${worktree.app} at ${worktree.publicUrl ?? "no URL"}.`, ...notes].join("\n")
-});
-var stopWorktree = tool({
-  name: "stop_worktree",
-  title: "Stop worktree",
-  description: "Stop a worktree's dev server and tunnel and drop its WhatsApp route, so its phone goes back to production.",
-  input: external_exports.object({ name: WorktreeName }),
-  output: external_exports.object({ worktree: Worktree, notes: external_exports.array(external_exports.string()) }),
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-  text: ({ worktree }) => `${worktree.name} stopped.`
-});
-var appDocument = appResource({
-  uri: "ui://worktrees/app.html",
-  name: "Worktrees"
-});
-var openWorktreesApp = tool({
-  name: "open_worktrees",
-  title: "Worktrees",
-  description: "Open the Worktrees app to see, create, start, stop and remove booking-agent dev worktrees and change their phone.",
-  input: external_exports.object({}),
-  output: external_exports.object({ ready: external_exports.boolean() }),
-  annotations: { readOnlyHint: true, destructiveHint: false },
-  app: {
-    document: appDocument,
-    icon: "workflow",
-    resources: [worktreeList]
-  },
-  text: () => "Worktrees is open."
-});
-var extensionContract = defineExtension({
-  name: "worktrees",
-  version: "0.1.0",
-  resources: { worktreeList, appDocument },
-  tools: { listWorktrees, createWorktree, removeWorktree, setPhone, startWorktree, stopWorktree, openWorktreesApp }
-});
+// server/chat.ts
+import { createHmac, randomBytes } from "node:crypto";
+import { readFile as readFile2 } from "node:fs/promises";
+import { join as join3 } from "node:path";
 
 // server/ops.ts
 import { execFile } from "node:child_process";
@@ -38953,6 +38841,505 @@ async function writeMeta(meta3) {
   await writeFile(metaFile(meta3.path), JSON.stringify(meta3, null, 2) + "\n");
 }
 
+// server/chat.ts
+var POLL_MS = 1e3;
+var sleep2 = (ms) => new Promise((r) => setTimeout(r, ms));
+function parseEnv(text) {
+  const out = {};
+  for (const line of text.split("\n")) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+    if (m) out[m[1]] = m[2].replace(/^(['"])(.*)\1$/, "$2");
+  }
+  return out;
+}
+var App = class _App {
+  constructor(meta3, env2) {
+    this.meta = meta3;
+    this.env = env2;
+    this.base = `http://127.0.0.1:${meta3.port}`;
+  }
+  meta;
+  env;
+  base;
+  static async open(meta3) {
+    const env2 = parseEnv(await readFile2(join3(meta3.path, ".env"), "utf8").catch(() => ""));
+    if (!env2.DEV_FORWARD_SECRET) throw new DomainError(`${meta3.name}/.env has no DEV_FORWARD_SECRET, so its webhook can't be signed.`);
+    return new _App(meta3, env2);
+  }
+  async fetch(path, init = {}) {
+    const headers = new Headers(init.headers);
+    if (this.env.DEV_CHAT_TOKEN) headers.set("X-Dev-Token", this.env.DEV_CHAT_TOKEN);
+    try {
+      return await fetch(`${this.base}${path}`, { ...init, headers, signal: AbortSignal.timeout(2e4), redirect: "manual" });
+    } catch (err) {
+      throw new DomainError(`${this.meta.name} is not answering on :${this.meta.port} (${err.message}). Is it running? Try start_worktree.`);
+    }
+  }
+  async json(path, init = {}) {
+    const res = await this.fetch(path, init);
+    const text = await res.text();
+    if (!res.ok) {
+      const hint = res.status === 404 && path.startsWith("/dev/") ? " (does this worktree have the chat dev routes? merge main / restart it)" : "";
+      throw new DomainError(`${path.split("?")[0]} answered ${res.status}: ${text.slice(0, 300)}${hint}`);
+    }
+    return JSON.parse(text);
+  }
+  outbox(phone, since, limit) {
+    const q = new URLSearchParams({ phone });
+    if (since) q.set("since", since);
+    if (limit) q.set("limit", String(limit));
+    return this.json(`/dev/outbox?${q}`);
+  }
+  mockOrders(since, limit) {
+    const q = new URLSearchParams();
+    if (since) q.set("since", since);
+    if (limit) q.set("limit", String(limit));
+    return this.json(`/dev/mock-orders?${q}`);
+  }
+  bookings(phone) {
+    return this.json(`/dev/bookings?${new URLSearchParams({ phone })}`);
+  }
+  reset(phone, force) {
+    return this.json("/dev/reset-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, force })
+    });
+  }
+  /** POSTs a Twilio-shaped inbound message to /webhooks/whatsapp, signed like production's forward. */
+  async sendInbound(phone, text, profileName) {
+    const sid = `SMtest${randomBytes(13).toString("hex")}`;
+    const form = new URLSearchParams({
+      SmsMessageSid: sid,
+      NumMedia: "0",
+      SmsSid: sid,
+      SmsStatus: "received",
+      Body: text,
+      To: this.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886",
+      NumSegments: "1",
+      MessageSid: sid,
+      AccountSid: this.env.TWILIO_ACCOUNT_SID || "ACtest",
+      From: `whatsapp:${phone}`,
+      ApiVersion: "2010-04-01",
+      WaId: phone.replace(/^\+/, ""),
+      MessageType: "text",
+      ...profileName ? { ProfileName: profileName } : {}
+    });
+    const body = form.toString();
+    const ts = String(Date.now());
+    const mac3 = createHmac("sha256", this.env.DEV_FORWARD_SECRET).update(`${ts}.${body}`).digest("hex");
+    const res = await this.fetch("/webhooks/whatsapp", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Dev-Forward": `${ts}.${mac3}` },
+      body
+    });
+    if (!res.ok) throw new DomainError(`/webhooks/whatsapp answered ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    return sid;
+  }
+  /** The setup page and its form, exactly as the browser submits it when no mail/calendar is connected. */
+  async completeOnboarding(token, fields) {
+    const page = await this.fetch(`/onboard?t=${encodeURIComponent(token)}`);
+    if (page.status !== 200) throw new DomainError(`setup page answered ${page.status}: ${(await page.text()).replace(/<[^>]+>/g, " ").slice(0, 200)}`);
+    const form = new URLSearchParams({
+      t: token,
+      tz: fields.tz ?? "",
+      city: fields.city,
+      interests: fields.interests,
+      monthly: String(fields.monthly),
+      auto: String(fields.auto)
+    });
+    const res = await this.fetch("/onboard/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString()
+    });
+    const html = await res.text();
+    if (!res.ok) throw new DomainError(`/onboard/complete answered ${res.status}: ${html.slice(0, 200)}`);
+    return html.match(/<h1>(.*?)<\/h1>/)?.[1] ?? "(no heading)";
+  }
+  /**
+   * New outbox messages after `since`: returns once `done` says so, or once something arrived and nothing new
+   * came for `quietMs` (a turn can send more than one message), or at the deadline.
+   */
+  async waitForMessages(phone, since, opts) {
+    const seen = /* @__PURE__ */ new Map();
+    let lastNew = Date.now();
+    let onboardingStatus = null;
+    for (; ; ) {
+      const box = await this.outbox(phone, since, 500);
+      onboardingStatus = box.onboardingStatus;
+      for (const m of box.messages) {
+        if (!seen.has(m.id)) {
+          seen.set(m.id, m);
+          lastNew = Date.now();
+        }
+      }
+      const messages = [...seen.values()];
+      if (opts.done ? opts.done(messages) : messages.length && Date.now() - lastNew >= opts.quietMs) {
+        return { messages, timedOut: false, onboardingStatus };
+      }
+      if (Date.now() >= opts.deadline) return { messages, timedOut: true, onboardingStatus };
+      await sleep2(POLL_MS);
+    }
+  }
+  /** One user message in, everything the app sent back during the turn out. */
+  async chat(phone, text, opts) {
+    const { now } = await this.outbox(phone, void 0, 1);
+    await this.sendInbound(phone, text, opts.profileName);
+    return this.waitForMessages(phone, now, opts);
+  }
+};
+var SETUP_LINK = /\/onboard\?t=([A-Za-z0-9_-]+)/;
+var READY = /Ready to go/;
+var ONBOARDING_FAILED = /something went wrong while I was reading/;
+async function onboard(app, input) {
+  const deadline = Date.now() + input.timeoutSeconds * 1e3;
+  const steps = [];
+  const messages = [];
+  const fail = (step, detail) => {
+    steps.push({ step, ok: false, detail });
+    const transcript = messages.map((m) => `  \u2190 ${m.body.replace(/\s+/g, " ").slice(0, 200)}`).join("\n");
+    throw new DomainError(
+      [`chat_onboard failed at "${step}": ${detail}`, ...steps.slice(0, -1).map((s) => `  \u2713 ${s.step}: ${s.detail}`), transcript && `Messages:
+${transcript}`].filter(Boolean).join("\n")
+    );
+  };
+  const hello = await app.chat(input.phone, input.firstMessage, {
+    profileName: input.profileName,
+    deadline: Math.min(deadline, Date.now() + 6e4),
+    quietMs: 3e3,
+    // The setup link is the whole reply; anything else (concierge, error) already tells us onboarding won't start.
+    done: (ms) => ms.length > 0
+  });
+  messages.push(...hello.messages);
+  const link = hello.messages.map((m) => SETUP_LINK.exec(m.body)).find(Boolean);
+  if (!link) {
+    const why = hello.onboardingStatus === "ready" ? `${input.phone} is already onboarded (its first message went to the concierge). Run chat_reset first.` : hello.onboardingStatus === "analyzing" ? `${input.phone} is still being analysed from an earlier onboarding. Wait, or chat_reset.` : hello.timedOut ? "no reply with a setup link (see .atmos/app.log)" : "the reply has no /onboard?t= link";
+    fail("first message", why);
+  }
+  const token = link[1];
+  steps.push({ step: "first message", ok: true, detail: `got setup link /onboard?t=${token.slice(0, 6)}\u2026` });
+  const heading = await app.completeOnboarding(token, {
+    city: input.city,
+    interests: input.interests.join(", "),
+    monthly: input.monthlyBudgetEur,
+    auto: input.autoApproveEur,
+    tz: input.timezone
+  }).catch((err) => fail("setup form", err.message));
+  steps.push({ step: "setup form", ok: true, detail: `submitted, page says "${heading}"` });
+  const known = new Set(messages.map((m) => m.id));
+  const analysis = await app.waitForMessages(input.phone, hello.messages.at(-1).at, {
+    deadline,
+    quietMs: 0,
+    done: (ms) => ms.some((m) => READY.test(m.body) || ONBOARDING_FAILED.test(m.body))
+  });
+  analysis.messages = analysis.messages.filter((m) => !known.has(m.id));
+  messages.push(...analysis.messages);
+  if (analysis.messages.some((m) => ONBOARDING_FAILED.test(m.body))) fail("analysis", "the onboard-user workflow failed (see .atmos/app.log)");
+  if (analysis.timedOut) fail("analysis", `no "Ready to go" message within ${input.timeoutSeconds}s (status ${analysis.onboardingStatus})`);
+  steps.push({ step: "analysis", ok: true, detail: 'got the "Ready to go" message' });
+  let status = analysis.onboardingStatus;
+  for (let i = 0; i < 10 && status !== "ready"; i++) {
+    await sleep2(POLL_MS);
+    status = (await app.outbox(input.phone, void 0, 1)).onboardingStatus;
+  }
+  if (status !== "ready") fail("ready", `onboarding status is ${status}, expected ready`);
+  steps.push({ step: "ready", ok: true, detail: "onboarding_status = ready" });
+  return { phone: input.phone, steps, messages, onboardingStatus: status };
+}
+
+// server/contract.ts
+var WorktreeName = external_exports.string().trim().regex(/^[a-z0-9][a-z0-9-]{0,29}$/, "lowercase letters, digits and dashes, at most 30 characters");
+var Phone = external_exports.string().trim().regex(/^\+[1-9]\d{6,14}$/, "an E.164 number without spaces, such as +4915112345678");
+var RouteState = external_exports.object({
+  status: external_exports.enum(["active", "expired", "none", "elsewhere", "unknown"]),
+  expiresAt: external_exports.string().nullable(),
+  message: external_exports.string().nullable()
+});
+var Worktree = external_exports.object({
+  name: external_exports.string(),
+  path: external_exports.string(),
+  gitBranch: external_exports.string(),
+  port: external_exports.number().int(),
+  phone: external_exports.string().nullable(),
+  neonBranchId: external_exports.string(),
+  neonBranchName: external_exports.string(),
+  createdAt: external_exports.string(),
+  app: external_exports.enum(["running", "starting", "stopped", "failed"]),
+  publicUrl: external_exports.string().nullable(),
+  route: RouteState,
+  dirtyFiles: external_exports.number().int(),
+  aheadOfMain: external_exports.number().int(),
+  lastCommit: external_exports.string()
+});
+var WorktreeList = external_exports.object({
+  repo: external_exports.string(),
+  worktrees: external_exports.array(Worktree)
+});
+var worktreeList = resource({
+  uri: "atmos://worktrees/list",
+  name: "Booking agent worktrees",
+  schema: WorktreeList
+});
+var listWorktrees = tool({
+  name: "list_worktrees",
+  title: "List worktrees",
+  description: "List the booking-agent dev worktrees on this Machine with their port, public URL, Neon branch, routed WhatsApp phone and git state.",
+  input: external_exports.object({}),
+  output: WorktreeList,
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  text: ({ worktrees }) => worktrees.length ? worktrees.map((w) => `${w.name}: ${w.app} on :${w.port} ${w.publicUrl ?? ""} phone ${w.phone ?? "\u2014"} (${w.route.status})`).join("\n") : "No worktrees yet."
+});
+var createWorktree = tool({
+  name: "create_worktree",
+  title: "Create worktree",
+  description: "Create a git worktree on branch wt/<name>, branch the production Neon database for it, write its .env from the main checkout, start its dev server and tunnel, and route the phone (optional) to it.",
+  input: external_exports.object({
+    name: WorktreeName,
+    phone: Phone.optional().describe("WhatsApp number whose inbound messages go to this worktree; also its only outbound allowlist entry"),
+    baseRef: external_exports.string().trim().min(1).max(100).default("main").describe("Git ref the new branch starts from"),
+    start: external_exports.boolean().default(true).describe("Start the dev server and tunnel right away")
+  }),
+  output: external_exports.object({ worktree: Worktree, notes: external_exports.array(external_exports.string()) }),
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  text: ({ worktree, notes }) => [`Created ${worktree.name} at ${worktree.path} (:${worktree.port}, ${worktree.publicUrl ?? "no tunnel"}).`, ...notes].join("\n")
+});
+var removeWorktree = tool({
+  name: "remove_worktree",
+  title: "Remove worktree",
+  description: "Stop a worktree, drop its WhatsApp route, delete its Neon branch and remove the git worktree. Refuses when there are uncommitted changes unless force is set. The git branch is kept.",
+  input: external_exports.object({ name: WorktreeName, force: external_exports.boolean().default(false) }),
+  output: external_exports.object({ removed: external_exports.string(), notes: external_exports.array(external_exports.string()) }),
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+  text: ({ removed, notes }) => [`Removed ${removed}.`, ...notes].join("\n")
+});
+var setPhone = tool({
+  name: "set_worktree_phone",
+  title: "Set worktree phone",
+  description: "Set (or clear with null) the WhatsApp number routed to a worktree. Updates the worktree's allowlist, restarts its app and points production's route for that number at it; a number routed elsewhere moves here.",
+  input: external_exports.object({ name: WorktreeName, phone: Phone.nullable() }),
+  output: external_exports.object({ worktree: Worktree, notes: external_exports.array(external_exports.string()) }),
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  text: ({ worktree, notes }) => [`${worktree.name} now uses ${worktree.phone ?? "no phone"} (${worktree.route.status}).`, ...notes].join("\n")
+});
+var startWorktree = tool({
+  name: "start_worktree",
+  title: "Start worktree",
+  description: "Start a worktree's tunnel and dev server, refresh PUBLIC_URL and renew its WhatsApp route.",
+  input: external_exports.object({ name: WorktreeName }),
+  output: external_exports.object({ worktree: Worktree, notes: external_exports.array(external_exports.string()) }),
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  text: ({ worktree, notes }) => [`${worktree.name} is ${worktree.app} at ${worktree.publicUrl ?? "no URL"}.`, ...notes].join("\n")
+});
+var stopWorktree = tool({
+  name: "stop_worktree",
+  title: "Stop worktree",
+  description: "Stop a worktree's dev server and tunnel and drop its WhatsApp route, so its phone goes back to production.",
+  input: external_exports.object({ name: WorktreeName }),
+  output: external_exports.object({ worktree: Worktree, notes: external_exports.array(external_exports.string()) }),
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+  text: ({ worktree }) => `${worktree.name} stopped.`
+});
+var testPhones = "Use +1555 test numbers (e.g. +15550100001): they are never in a worktree's allowlist, so nothing reaches Twilio or a real person.";
+var ChatMessage = external_exports.object({
+  id: external_exports.string(),
+  at: external_exports.string().describe("When the app sent it (database clock, ISO)"),
+  body: external_exports.string(),
+  mediaUrl: external_exports.string().nullable(),
+  status: external_exports.string().describe("sent | dry_run | not_allowlisted | failed"),
+  error: external_exports.string().nullable()
+});
+var OnboardingStatus = external_exports.string().nullable().describe("new | link_sent | analyzing | ready; null when the user does not exist");
+var chatSend = tool({
+  name: "chat_send",
+  title: "Send a test WhatsApp message",
+  description: "Send a WhatsApp message to a worktree's agent as a user would: the message enters the app's real /webhooks/whatsapp route signed like a message production forwards to a worktree, and the replies are read back from the outbox of the real outbound path. Returns once something arrived and nothing new came for quietSeconds, or on timeout. A user who is not onboarded gets the setup link (see chat_onboard). Turns that search for events can take 2-3 minutes: raise timeoutSeconds, or pick up late replies with chat_messages. " + testPhones,
+  input: external_exports.object({
+    name: WorktreeName,
+    phone: Phone,
+    text: external_exports.string().min(1).max(4e3),
+    profileName: external_exports.string().trim().min(1).max(100).optional().describe("WhatsApp profile name; becomes the user's name on first contact"),
+    timeoutSeconds: external_exports.number().int().min(5).max(600).default(90),
+    quietSeconds: external_exports.number().min(1).max(60).default(5).describe("How long without new messages counts as the turn being over")
+  }),
+  output: external_exports.object({ phone: external_exports.string(), replies: external_exports.array(ChatMessage), timedOut: external_exports.boolean(), onboardingStatus: OnboardingStatus }),
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  text: ({ replies, timedOut }) => [...replies.map((m) => `\u2190 ${m.body}${m.mediaUrl ? ` [media ${m.mediaUrl}]` : ""}`), ...timedOut ? [replies.length ? "(timed out waiting for more)" : "(no reply before the timeout; see .atmos/app.log)"] : []].join("\n\n")
+});
+var chatMessages = tool({
+  name: "chat_messages",
+  title: "Read test WhatsApp messages",
+  description: `Messages a worktree's app sent to a phone, oldest first, from its outbox: late replies and proactive messages (picks, booking updates, the onboarding "Ready" message). Without since, the latest limit messages.`,
+  input: external_exports.object({
+    name: WorktreeName,
+    phone: Phone,
+    since: external_exports.string().datetime({ offset: true }).optional().describe("Only messages after this ISO time"),
+    limit: external_exports.number().int().min(1).max(500).default(50)
+  }),
+  output: external_exports.object({ phone: external_exports.string(), messages: external_exports.array(ChatMessage), onboardingStatus: OnboardingStatus }),
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  text: ({ messages }) => messages.length ? messages.map((m) => `${m.at} [${m.status}] ${m.body}`).join("\n\n") : "No messages."
+});
+var chatOnboard = tool({
+  name: "chat_onboard",
+  title: "Onboard a test user",
+  description: `Sign a test user up through the real onboarding flow: sends a first WhatsApp message (as chat_send), takes the setup link from the reply, submits the real setup form with city, interests and budget without connecting mail or calendar (those buttons are optional), then waits for the onboard-user workflow's "Ready to go" WhatsApp message. Fails naming the step that broke. An already-onboarded phone fails at the first step: run chat_reset first. ` + testPhones,
+  input: external_exports.object({
+    name: WorktreeName,
+    phone: Phone,
+    profileName: external_exports.string().trim().min(1).max(100).optional(),
+    firstMessage: external_exports.string().min(1).max(500).default("Hi"),
+    city: external_exports.string().trim().min(1).max(100),
+    interests: external_exports.array(external_exports.string().trim().min(1).max(100)).max(20).describe("What the user tells us they like"),
+    monthlyBudgetEur: external_exports.number().min(0).max(1e4),
+    autoApproveEur: external_exports.number().min(0).max(1e4).describe("Book unasked up to this price"),
+    timezone: external_exports.string().trim().max(60).optional().describe("IANA zone the browser would send, e.g. Europe/Berlin"),
+    timeoutSeconds: external_exports.number().int().min(10).max(900).default(180)
+  }),
+  output: external_exports.object({
+    phone: external_exports.string(),
+    steps: external_exports.array(external_exports.object({ step: external_exports.string(), ok: external_exports.boolean(), detail: external_exports.string() })),
+    messages: external_exports.array(ChatMessage),
+    onboardingStatus: OnboardingStatus
+  }),
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  text: ({ steps, messages, onboardingStatus }) => [...steps.map((s) => `\u2713 ${s.step}: ${s.detail}`), `Status: ${onboardingStatus}`, "", ...messages.map((m) => `\u2190 ${m.body}`)].join("\n")
+});
+var chatReset = tool({
+  name: "chat_reset",
+  title: "Reset a test user",
+  description: "Delete a phone's user from a worktree's database (budget, taste profile, bookings, credits, ... cascade), its outbox and its chat memory, so the next message starts from scratch. Refuses numbers outside +1555 unless force: worktree databases are copies of production with real users.",
+  input: external_exports.object({ name: WorktreeName, phone: Phone, force: external_exports.boolean().default(false) }),
+  output: external_exports.object({ phone: external_exports.string(), deletedUserId: external_exports.string().nullable(), outboxDeleted: external_exports.number().int(), threadDeleted: external_exports.boolean() }),
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+  text: ({ phone, deletedUserId, outboxDeleted, threadDeleted }) => deletedUserId || outboxDeleted || threadDeleted ? `Reset ${phone}: ${deletedUserId ? "user deleted" : "no user"}, ${outboxDeleted} outbox message(s), ${threadDeleted ? "chat memory cleared" : "no chat memory"}.` : `${phone} had nothing to reset.`
+});
+var MockOrder = external_exports.object({
+  orderNo: external_exports.string(),
+  eventSlug: external_exports.string(),
+  showtime: external_exports.string(),
+  qty: external_exports.number().int(),
+  ticketType: external_exports.string(),
+  unitPriceCents: external_exports.number().int(),
+  feesCents: external_exports.number().int(),
+  totalCents: external_exports.number().int(),
+  attendeeName: external_exports.string().nullable(),
+  attendeeEmail: external_exports.string().nullable(),
+  memberEmail: external_exports.string().nullable(),
+  cardLast4: external_exports.string().nullable(),
+  createdAt: external_exports.string()
+});
+var cents = (c) => c === null ? "\u2014" : `${c < 0 ? "\u2212" : ""}\u20AC${(Math.abs(c) / 100).toFixed(2)}`;
+var mockOrders = tool({
+  name: "mock_orders",
+  title: "Mock shop orders",
+  description: "Orders placed in a worktree's mock ticket shop (Ticketeria, served at /mock/shop when its .env has MOCK_SHOP=1), newest first: what the booking flow actually bought, with ticket type, quantity, fees and total. Fails if the worktree has MOCK_SHOP off.",
+  input: external_exports.object({
+    name: WorktreeName,
+    since: external_exports.string().datetime({ offset: true }).optional().describe("Only orders after this ISO time"),
+    limit: external_exports.number().int().min(1).max(500).default(20)
+  }),
+  output: external_exports.object({ orders: external_exports.array(MockOrder) }),
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  text: ({ orders }) => orders.length ? orders.map((o) => `${o.createdAt} ${o.orderNo} ${o.eventSlug} ${o.showtime} ${o.qty}\xD7 ${o.ticketType} ${cents(o.totalCents)}${o.feesCents ? ` (fees ${cents(o.feesCents)})` : ""}${o.cardLast4 ? ` card \u2022${o.cardLast4}` : ""}`).join("\n") : "No orders."
+});
+var BookingsReport = external_exports.object({
+  phone: external_exports.string(),
+  userId: external_exports.string().nullable(),
+  credits: external_exports.object({ balanceCents: external_exports.number(), heldCents: external_exports.number(), availableCents: external_exports.number() }).nullable(),
+  bookings: external_exports.array(
+    external_exports.object({
+      id: external_exports.string(),
+      event: external_exports.string(),
+      showtime: external_exports.string().nullable(),
+      qty: external_exports.number().int(),
+      status: external_exports.string(),
+      approvedCents: external_exports.number().nullable(),
+      totalCents: external_exports.number().nullable(),
+      orderRef: external_exports.string().nullable(),
+      ticketUrl: external_exports.string().nullable(),
+      holdRef: external_exports.string().nullable(),
+      liveViewUrl: external_exports.string().nullable(),
+      suspendedStep: external_exports.string().nullable(),
+      error: external_exports.string().nullable(),
+      createdAt: external_exports.string(),
+      updatedAt: external_exports.string()
+    })
+  ),
+  holds: external_exports.array(
+    external_exports.object({
+      ref: external_exports.string(),
+      bookingId: external_exports.string().nullable(),
+      amountCents: external_exports.number(),
+      capturedCents: external_exports.number().nullable(),
+      status: external_exports.string(),
+      note: external_exports.string().nullable(),
+      createdAt: external_exports.string(),
+      settledAt: external_exports.string().nullable()
+    })
+  ),
+  ledger: external_exports.array(
+    external_exports.object({ kind: external_exports.string(), amountCents: external_exports.number(), bookingId: external_exports.string().nullable(), ref: external_exports.string(), note: external_exports.string().nullable(), createdAt: external_exports.string() })
+  )
+});
+var chatBookings = tool({
+  name: "chat_bookings",
+  title: "Test user bookings",
+  description: "A test user's bookings in a worktree (status, approved and paid totals, order number, tickets link, what it waits for, error) with their credit holds, credit ledger rows and current credits, to check the booking flow against the money side.",
+  input: external_exports.object({ name: WorktreeName, phone: Phone }),
+  output: BookingsReport,
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  text: ({ phone, userId, credits, bookings, holds, ledger }) => !userId ? `${phone} has no user.` : [
+    `Credits: ${cents(credits?.availableCents ?? null)} available, ${cents(credits?.heldCents ?? null)} held, balance ${cents(credits?.balanceCents ?? null)}`,
+    "Bookings:",
+    ...bookings.length ? bookings.map(
+      (b) => `  ${b.id.slice(0, 8)} ${b.status} ${b.qty}\xD7 ${b.event} ${b.showtime ?? ""} approved ${cents(b.approvedCents)} paid ${cents(b.totalCents)}${b.orderRef ? ` order ${b.orderRef}` : ""}${b.suspendedStep ? ` waiting at ${b.suspendedStep}` : ""}${b.error ? ` error: ${b.error}` : ""}`
+    ) : ["  none"],
+    "Holds:",
+    ...holds.length ? holds.map((h) => `  ${h.ref} ${h.status} ${cents(h.amountCents)} captured ${cents(h.capturedCents)}`) : ["  none"],
+    "Ledger:",
+    ...ledger.length ? ledger.map((l) => `  ${l.createdAt} ${l.kind} ${cents(l.amountCents)} ${l.note ?? ""}`) : ["  none"]
+  ].join("\n")
+});
+var appDocument = appResource({
+  uri: "ui://worktrees/app.html",
+  name: "Worktrees"
+});
+var openWorktreesApp = tool({
+  name: "open_worktrees",
+  title: "Worktrees",
+  description: "Open the Worktrees app to see, create, start, stop and remove booking-agent dev worktrees and change their phone.",
+  input: external_exports.object({}),
+  output: external_exports.object({ ready: external_exports.boolean() }),
+  annotations: { readOnlyHint: true, destructiveHint: false },
+  app: {
+    document: appDocument,
+    icon: "workflow",
+    resources: [worktreeList]
+  },
+  text: () => "Worktrees is open."
+});
+var extensionContract = defineExtension({
+  name: "worktrees",
+  version: "0.1.0",
+  resources: { worktreeList, appDocument },
+  tools: {
+    listWorktrees,
+    createWorktree,
+    removeWorktree,
+    setPhone,
+    startWorktree,
+    stopWorktree,
+    openWorktreesApp,
+    chatSend,
+    chatMessages,
+    chatOnboard,
+    chatReset,
+    chatBookings,
+    mockOrders
+  }
+});
+
 // server/server.ts
 var extension = createSqliteExtension(extensionContract, { root: new URL("..", import.meta.url) });
 async function find(name) {
@@ -39015,7 +39402,7 @@ extension.tool(
   (_context, { name, phone, baseRef, start }) => serial(async () => {
     const registry2 = await readRegistry();
     if (registry2.some((m) => m.name === name)) throw new DomainError(`A worktree named "${name}" already exists.`);
-    const path = join3(config2.worktreesDir, name);
+    const path = join4(config2.worktreesDir, name);
     const used = new Set(registry2.map((m) => m.port));
     let port = config2.basePort;
     while (used.has(port)) port++;
@@ -39127,6 +39514,24 @@ extension.tool(
     return { worktree: await describeOne(name), notes };
   })
 );
+extension.tool(chatSend, async (_context, { name, phone, text, profileName, timeoutSeconds, quietSeconds }) => {
+  const app = await App.open(await find(name));
+  const { messages, timedOut, onboardingStatus } = await app.chat(phone, text, {
+    profileName,
+    deadline: Date.now() + timeoutSeconds * 1e3,
+    quietMs: quietSeconds * 1e3
+  });
+  return { phone, replies: messages, timedOut, onboardingStatus };
+});
+extension.tool(chatMessages, async (_context, { name, phone, since, limit }) => {
+  const app = await App.open(await find(name));
+  const { messages, onboardingStatus } = await app.outbox(phone, since, limit);
+  return { phone, messages, onboardingStatus };
+});
+extension.tool(chatOnboard, async (_context, input) => onboard(await App.open(await find(input.name)), input));
+extension.tool(chatReset, async (_context, { name, phone, force }) => (await App.open(await find(name))).reset(phone, force));
+extension.tool(chatBookings, async (_context, { name, phone }) => (await App.open(await find(name))).bookings(phone));
+extension.tool(mockOrders, async (_context, { name, since, limit }) => (await App.open(await find(name))).mockOrders(since, limit));
 extension.app(appDocument);
 extension.tool(openWorktreesApp, () => ({ ready: true }));
 process.on("exit", () => void closeProd());
