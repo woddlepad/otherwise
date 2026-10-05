@@ -1,4 +1,22 @@
-# booking-agent
+<p align="center">
+  <img src="design/homepage/img/capy-soft.webp" alt="The Otherwise capybara, holding a little clock" width="200">
+</p>
+
+<h1 align="center">otherwise</h1>
+
+<p align="center"><b>Otherwise, you'd have stayed in.</b></p>
+
+<p align="center">
+  <a href="https://otherwise-homepage.vercel.app"><img alt="homepage" src="https://img.shields.io/badge/homepage-otherwise--homepage.vercel.app-22675A"></a>
+  <img alt="evenings on the couch: declining" src="https://img.shields.io/badge/evenings%20on%20the%20couch-declining-C44F2F">
+  <img alt="FOMO: patched" src="https://img.shields.io/badge/FOMO-patched-22675A">
+  <img alt="capybara: unbothered" src="https://img.shields.io/badge/capybara-unbothered-C07848">
+  <img alt="budget: respected" src="https://img.shields.io/badge/budget-respected-1C302C">
+  <img alt="card numbers seen by the model: 0" src="https://img.shields.io/badge/card%20numbers%20seen%20by%20the%20model-0-1C302C">
+  <img alt="talks via WhatsApp" src="https://img.shields.io/badge/talks%20via-WhatsApp-25D366?logo=whatsapp&logoColor=white">
+  <img alt="built with Mastra" src="https://img.shields.io/badge/built%20with-Mastra-1C302C">
+  <img alt="plus-ones: bring your own" src="https://img.shields.io/badge/plus--ones-bring%20your%20own-C07848">
+</p>
 
 A personal agent that finds events you'll like and books them within a budget. You talk to it on WhatsApp.
 Stack: Mastra (agent + workflows) · Postgres · Twilio WhatsApp · later Exa, Kernel, AgentMail.
